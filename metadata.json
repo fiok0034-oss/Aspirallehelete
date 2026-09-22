@@ -1,0 +1,6 @@
+{
+  "name": "A Spirál Lehellete – A 82. szélességi kód",
+  "description": "Csurik Konrád sci-fi regényének hivatalos digitális könyv-univerzuma és interaktív archívuma.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
