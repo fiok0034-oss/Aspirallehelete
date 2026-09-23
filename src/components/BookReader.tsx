@@ -1530,7 +1530,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
                 VÉGE
               </div>
               <div className="text-cyan-500/70 font-mono text-sm tracking-widest uppercase animate-pulse">
-                A Spirál Lehellete – Csurik Konrád
+                A Spirál Lehelete – Csurik Konrád
               </div>
             </div>
           )}
@@ -1574,7 +1574,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
                   ÁTLÉPTED A KÜSZÖBÖT
                 </h2>
                 <p className="text-slate-300 text-sm sm:text-base font-light leading-relaxed">
-                  Befejezted <span className="text-cyan-300 font-medium">A Spirál Lehellete</span> teljes történetét. Most, hogy a könyv szövege a részeddé vált, tárd fel az Archívum titkos aktáit és oszd meg elméletedet a többi olvasóval!
+                  Befejezted <span className="text-cyan-300 font-medium">A Spirál Lehelete</span> teljes történetét. Most, hogy a könyv szövege a részeddé vált, tárd fel az Archívum titkos aktáit és oszd meg elméletedet a többi olvasóval!
                 </p>
               </div>
 

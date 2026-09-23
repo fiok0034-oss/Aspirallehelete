@@ -17,7 +17,7 @@ export const Footer: React.FC = () => {
           <div className="md:col-span-2 space-y-4">
             <div className="space-y-1">
               <h3 className="text-xl font-cinzel font-bold text-slate-100 tracking-wider">
-                A SPIRÁL LEHELLETE
+                A SPIRÁL LEHELETE
               </h3>
               <p className="text-cyan-400 font-semibold tracking-widest text-[11px] uppercase">
                 A 82. SZÉLESSÉGI KÓD

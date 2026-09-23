@@ -236,7 +236,7 @@ export const Hero: React.FC<HeroProps> = ({
       <div className="z-20 max-w-4xl mx-auto my-auto space-y-6">
         <div className="space-y-3">
           <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold tracking-tight font-cinzel text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-400 drop-shadow-[0_10px_35px_rgba(56,189,248,0.25)]">
-            A SPIRÁL LEHELLETE
+            A SPIRÁL LEHELETE
           </h1>
           <h2 className="text-lg sm:text-2xl md:text-3xl font-mono tracking-widest text-cyan-300/90 uppercase font-semibold">
             A 82. SZÉLESSÉGI KÓD
@@ -270,7 +270,7 @@ export const Hero: React.FC<HeroProps> = ({
               <span>OLVASD EL A KÖNYVET</span>
             </button>
             <p className="text-xs sm:text-sm font-mono text-cyan-300/85 tracking-wide">
-              „Lépj be közvetlenül A Spirál Lehellete világába.”
+              „Lépj be közvetlenül A Spirál Lehelete világába.”
             </p>
           </div>
         )}

@@ -337,7 +337,7 @@ export const TIMELINE_ITEMS: TimelineItem[] = [
   {
     id: 'timeline-27',
     step: 27,
-    title: 'A Spirál Lehellete',
+    title: 'A Spirál Lehelete',
     subtitle: 'A rendszer önálló élete',
     date: 'Kulmináció',
     summary: 'A jég alatti komplexum ritmikus, mély lüktetéssel lélegezni kezd. A levegő és az idő egyetlen pulzussá válik.',

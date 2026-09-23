@@ -1,7 +1,7 @@
 import { BookChapter } from '../types';
 
 export const BOOK_METADATA = {
-  title: 'A Spirál Lehellete',
+  title: 'A Spirál Lehelete',
   subtitle: 'A 82. szélességi kód',
   author: 'Csurik Konrád',
   originalFormat: 'EPUB / Digitális Kézirat',

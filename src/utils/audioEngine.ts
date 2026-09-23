@@ -1,5 +1,5 @@
 /**
- * Procedural Web Audio Engine for "A Spirál Lehellete"
+ * Procedural Web Audio Engine for "A Spirál Lehelete"
  * Generates dark, icy, sci-fi atmospheric soundscapes:
  * - Subterranean sub-bass drone
  * - Arctic ice wind filter

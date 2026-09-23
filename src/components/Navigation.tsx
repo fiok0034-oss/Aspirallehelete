@@ -91,7 +91,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
           <div>
             <div className="text-sm sm:text-base font-cinzel font-bold tracking-wider text-slate-100 group-hover:text-cyan-300 transition-colors">
-              A SPIRÁL LEHELLETE
+              A SPIRÁL LEHELETE
             </div>
             <div className="text-[10px] font-mono tracking-widest text-cyan-400/70 flex items-center gap-1">
               <span>82°16’S</span>
