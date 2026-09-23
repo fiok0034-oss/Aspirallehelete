@@ -1,13 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SpiralState } from '../types';
 import { audioEngine } from '../utils/audioEngine';
-import { Eye, Sparkles, RefreshCw, Cpu, Activity } from 'lucide-react';
+import { Eye, Sparkles, RefreshCw, Cpu, Activity, Scan, AlertCircle } from 'lucide-react';
+import { trackDiscovery } from '../utils/discoveryStorage';
 
-export const SpiralExperience: React.FC = () => {
+interface SpiralExperienceProps {
+  onUnlockFragment?: (fragId: string) => void;
+}
+
+export const SpiralExperience: React.FC<SpiralExperienceProps> = ({ onUnlockFragment }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [currentState, setCurrentState] = useState<SpiralState>('FIGYEL');
   const [isHovered, setIsHovered] = useState(false);
   const mousePos = useRef({ x: 0, y: 0, active: false });
+  const hoverTimer = useRef<number | null>(null);
+
+  // 9. Whisper state
+  const [whisper, setWhisper] = useState<string | null>(null);
+  const [visitCount, setVisitCount] = useState<number>(0);
+
+  // 11. Spiral Scanning State
+  const [scanStatus, setScanStatus] = useState<'IDLE' | 'SCANNING' | 'COMPLETE'>('IDLE');
+  const [scanSteps, setScanSteps] = useState<string[]>([]);
 
   const states: SpiralState[] = ['FIGYEL', 'EMLÉKEZIK', 'VÁLASZOL', 'ÁTÍR', 'LÉLEGZIK'];
 
@@ -188,12 +202,62 @@ export const SpiralExperience: React.FC = () => {
       y: e.clientY - rect.top,
       active: true,
     };
-    if (!isHovered) setIsHovered(true);
+    if (!isHovered) {
+      setIsHovered(true);
+      if (!hoverTimer.current) {
+        hoverTimer.current = window.setTimeout(() => {
+          const whispers = [
+            '«„EMLÉKSZEL?”»',
+            '«„A SPIRÁL ÉRZI A TEKINTETED.”»',
+            '«„ÚJRA ITT VAGY.”»',
+          ];
+          const selected = whispers[visitCount % whispers.length];
+          setWhisper(selected);
+          setVisitCount((v) => v + 1);
+          audioEngine.playSonarPing();
+        }, 2200);
+      }
+    }
   };
 
   const handleMouseLeave = () => {
     mousePos.current.active = false;
     setIsHovered(false);
+    if (hoverTimer.current) {
+      clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+  };
+
+  // 11. Spiral Scanning Simulation
+  const handleScanSpiral = () => {
+    if (scanStatus === 'SCANNING') return;
+    setScanStatus('SCANNING');
+    setScanSteps(['SCANNING...']);
+    audioEngine.playSonarPing();
+
+    setTimeout(() => {
+      setScanSteps((prev) => [...prev, 'GEOMETRY: UNKNOWN']);
+    }, 800);
+
+    setTimeout(() => {
+      setScanSteps((prev) => [...prev, 'DIMENSIONAL SIGNATURE: DETECTED']);
+    }, 1800);
+
+    setTimeout(() => {
+      setScanSteps((prev) => [...prev, 'TEMPORAL DRIFT: 0.003']);
+    }, 2800);
+
+    setTimeout(() => {
+      setScanSteps((prev) => [...prev, 'COGNITIVE RESPONSE: ACTIVE']);
+    }, 3800);
+
+    setTimeout(() => {
+      setScanSteps((prev) => [...prev, '«„A rendszer észlelte a megfigyelőt.”»']);
+      setScanStatus('COMPLETE');
+      audioEngine.playDeepChime();
+      trackDiscovery.secretFound('spiral_scan_completed');
+    }, 4800);
   };
 
   return (
@@ -248,6 +312,58 @@ export const SpiralExperience: React.FC = () => {
                 {stateDescriptions[currentState].quote}
               </p>
             </div>
+
+            {/* 9. Secret Proximity Whisper */}
+            {whisper && (
+              <div className="absolute bottom-6 px-4 py-2 rounded border border-cyan-400/60 bg-black/90 text-cyan-200 font-cinzel text-sm sm:text-base tracking-widest animate-pulse shadow-[0_0_20px_rgba(56,189,248,0.3)]">
+                {whisper}
+              </div>
+            )}
+          </div>
+
+          {/* 11. Scan Spiral Control & Diagnostic Console */}
+          <div className="w-full border-t border-cyan-950/80 bg-[#02050E] p-4 flex flex-col items-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={handleScanSpiral}
+                disabled={scanStatus === 'SCANNING'}
+                className="flex items-center gap-2 px-4 py-2 rounded border border-cyan-500 bg-cyan-950/70 text-cyan-200 hover:bg-cyan-900 font-mono text-xs font-bold tracking-wider transition-all shadow-[0_0_15px_rgba(56,189,248,0.2)] disabled:opacity-50"
+              >
+                <Scan className="w-4 h-4 text-cyan-400" />
+                <span>{scanStatus === 'SCANNING' ? 'SZKENNELÉS FOLYAMATBAN...' : 'SCAN SPIRAL // DIAGNOSZTIKA'}</span>
+              </button>
+
+              {/* Secret clickable glyph */}
+              <button
+                onClick={() => {
+                  audioEngine.playSonarPing();
+                  trackDiscovery.fragmentFound('FRAG_04');
+                  if (onUnlockFragment) onUnlockFragment('FRAG_04');
+                }}
+                title="ARCHÍV-82 / FRAGMENT 04"
+                className="px-2 py-1 text-[10px] font-mono border border-cyan-900/40 text-cyan-700 hover:text-cyan-300 hover:border-cyan-500 transition-colors"
+              >
+                Δ–82
+              </button>
+            </div>
+
+            {/* Diagnostic readout steps */}
+            {scanSteps.length > 0 && (
+              <div className="w-full max-w-xl p-3 rounded bg-black/80 border border-cyan-950 font-mono text-[11px] space-y-1 text-left">
+                {scanSteps.map((step, idx) => (
+                  <div
+                    key={idx}
+                    className={
+                      idx === scanSteps.length - 1 && scanStatus === 'COMPLETE'
+                        ? 'text-cyan-300 font-bold font-cinzel text-xs pt-1'
+                        : 'text-slate-400'
+                    }
+                  >
+                    {step}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* State Stepper Buttons */}

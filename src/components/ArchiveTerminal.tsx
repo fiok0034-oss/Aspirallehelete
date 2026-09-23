@@ -7,6 +7,8 @@ import { trackDiscovery } from '../utils/discoveryStorage';
 
 interface ArchiveTerminalProps {
   spoilerMode: SpoilerMode;
+  onOpenZeroRoom?: () => void;
+  onOpenInfinite?: () => void;
 }
 
 // 67. Minősítési szintek & VOID dokumentumok
@@ -66,7 +68,11 @@ const VOID_DOCS: ExtendedArchiveDoc[] = [
   },
 ];
 
-export const ArchiveTerminal: React.FC<ArchiveTerminalProps> = ({ spoilerMode }) => {
+export const ArchiveTerminal: React.FC<ArchiveTerminalProps> = ({
+  spoilerMode,
+  onOpenZeroRoom,
+  onOpenInfinite,
+}) => {
   const [selectedDoc, setSelectedDoc] = useState<ExtendedArchiveDoc | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('ÖSSZES');
   const [activeTier, setActiveTier] = useState<string>('ÖSSZES');
@@ -74,6 +80,75 @@ export const ArchiveTerminal: React.FC<ArchiveTerminalProps> = ({ spoilerMode })
   const [isGlitching, setIsGlitching] = useState(false);
   const [spiralWhisper, setSpiralWhisper] = useState<string | null>(null);
   const docVisitCounts = useRef<Record<string, number>>({});
+
+  // 4 & 5. Interactive Terminal Shell
+  const [commandInput, setCommandInput] = useState('');
+  const [showShell, setShowShell] = useState(true);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([
+    'ARCHÍV-82 SYSTEM STATUS: ONLINE',
+    'SECURITY LEVEL: RESTRICTED',
+    'KNOWN SIGNALS: 9',
+    'UNKNOWN SIGNALS: 1',
+    'ACCESS: PARTIAL',
+    'TYPE COMMAND VAGY VÁLASSZ AZ ALÁBBI GOMBOKBÓL:',
+  ]);
+
+  const handleRunCommand = (rawCmd: string) => {
+    const cmd = rawCmd.trim().toUpperCase();
+    if (!cmd) return;
+    audioEngine.playSonarPing();
+
+    const newLogs = [...terminalLogs, `> ${cmd}`];
+
+    if (cmd === 'SCAN') {
+      newLogs.push('SCANNING SUB-ICE NETWORK... 9 SATELLITE NODES DETECTED. 1 UNKNOWN SINGULARITY AT 82°16’S.');
+      setActiveCategory('ANOMÁLIÁK');
+    } else if (cmd === 'SIGNALS') {
+      newLogs.push('KNOWN SIGNALS: 9 (STABLE 55 Hz). UNKNOWN SIGNALS: 1 (FLUX FREQUENCY: 082.1 MHz).');
+    } else if (cmd === 'PERSONNEL') {
+      newLogs.push('PERSONNEL DOSSIERS: VIKTOR [EXPEDITION LEADER], LENA [NEUROLOGY], MIRA [Δ–82 ARCHIVE], LEVENTE [ANOMALY].');
+      setActiveCategory('SZEMÉLYEK');
+    } else if (cmd === 'LOCATION') {
+      newLogs.push('LOCATION: 82°16’S, 36°01’E — ICE THICKNESS: 3800 METERS. GEOTHERMAL VOID DETECTED.');
+      setActiveCategory('KOORDINÁTÁK');
+    } else if (cmd === 'SPIRAL') {
+      newLogs.push('SPIRAL SIGNATURE: ACTIVE. CONSCIOUSNESS RESONANCE: 99.4%. COGNITIVE DRIFT: DETECTED.');
+      setActiveCategory('OBJEKTUMOK');
+    } else if (cmd === 'Δ–82' || cmd === 'DELTA-82' || cmd === 'DELTA 82') {
+      newLogs.push('DELTA-82 PROTOCOL: SYSTEM ROOT IDENTIFIER. 10 LORE FRAGMENTS LINKED TO THE BASALT CAVITY.');
+      trackDiscovery.secretFound('terminal_delta_82');
+    } else if (cmd === 'WHO') {
+      newLogs.push('OBSERVER IDENTIFIED: OPERATOR. A RENDSZER ÉSZLELTE A MEGFIGYELŐT.');
+    } else if (cmd === 'INFINITE') {
+      newLogs.push('CONNECTING TO THE INFINITE PRESENCE...');
+      if (onOpenInfinite) {
+        setTimeout(onOpenInfinite, 500);
+      }
+    } else if (cmd === 'ZERO' || cmd === 'ARCHIVE ZERO' || cmd === 'ARCHÍV-0') {
+      newLogs.push('REDIRECTING TO ARCHÍV-0 (ZERO ROOM)...');
+      if (onOpenZeroRoom) {
+        setTimeout(onOpenZeroRoom, 500);
+      }
+    } else if (cmd === 'VIKTOR' || cmd === 'LENA' || cmd === 'MIRA' || cmd === 'LEVENTE') {
+      newLogs.push(`DOSSIER ACCESS GRANTED: ${cmd}. KAPCSOLÓDÓ AKTA BETÖLTVE.`);
+      setActiveCategory('SZEMÉLYEK');
+    } else if (cmd === 'GUARDIANS' || cmd === 'ŐRZŐK') {
+      newLogs.push('THE NINE GUARDIANS FREQUENCIES: 9 KNOWN HARMONICS. 10TH NODE IS EMPTY / NAMELESS.');
+      setActiveCategory('ENTITÁSOK');
+    } else if (cmd === 'HELP') {
+      newLogs.push('AVAILABLE COMMANDS: SCAN, SIGNALS, PERSONNEL, LOCATION, SPIRAL, Δ–82, WHO, INFINITE, VIKTOR, LENA, MIRA, LEVENTE, GUARDIANS, ZERO, CLEAR');
+    } else if (cmd === 'CLEAR') {
+      setTerminalLogs(['ARCHÍV-82 ONLINE // TERMINAL CLEARED.']);
+      setCommandInput('');
+      return;
+    } else {
+      newLogs.push('ACCESS DENIED');
+      newLogs.push('REASON: YOU ARE LOOKING TOO EARLY.');
+    }
+
+    setTerminalLogs(newLogs.slice(-12));
+    setCommandInput('');
+  };
 
   // 66. Kategóriák felosztása
   const categories = [
@@ -209,10 +284,69 @@ export const ArchiveTerminal: React.FC<ArchiveTerminalProps> = ({ spoilerMode })
               <span className="font-bold tracking-wider">TERMINAL // ARCHÍV-82 SECURE_NODE v4.82</span>
             </div>
             <div className="flex items-center gap-4 text-slate-500 text-[11px]">
+              <button
+                onClick={() => setShowShell(!showShell)}
+                className="text-cyan-400 hover:text-white underline text-[10px]"
+              >
+                {showShell ? 'PARANCSSOR ELREJTÉSE' : 'PARANCSSOR MEGJELENÍTÉSE'}
+              </button>
               <span>MINŐSÍTÉSI FILTER: {activeTier}</span>
               <span className="text-cyan-400/80">KAPCSOLAT: ÉLŐ // Δ-82</span>
             </div>
           </div>
+
+          {/* 4 & 5. Interactive Command Shell Box */}
+          {showShell && (
+            <div className="p-4 bg-black/80 border-b border-cyan-950 font-mono text-xs space-y-3">
+              {/* Output Log Screen */}
+              <div className="p-3 rounded bg-[#02050D] border border-cyan-950/80 text-cyan-300/90 space-y-1 max-h-36 overflow-y-auto font-mono text-[11px] leading-relaxed">
+                {terminalLogs.map((log, i) => (
+                  <div key={i} className={log.startsWith('>') ? 'text-amber-300 font-bold' : log.includes('ACCESS DENIED') ? 'text-rose-400' : 'text-cyan-300/90'}>
+                    {log}
+                  </div>
+                ))}
+              </div>
+
+              {/* Command Input Form */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleRunCommand(commandInput);
+                }}
+                className="flex items-center gap-2"
+              >
+                <span className="text-cyan-400 font-bold">ARCHÍV-82 &gt;</span>
+                <input
+                  type="text"
+                  placeholder="Írj be egy parancsot (pl. SCAN, SIGNALS, Δ–82, WHO, INFINITE, ZERO)..."
+                  value={commandInput}
+                  onChange={(e) => setCommandInput(e.target.value)}
+                  className="flex-1 bg-black/60 border border-slate-800 rounded px-3 py-1.5 text-cyan-200 outline-none focus:border-cyan-500 text-xs"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 rounded bg-cyan-950 border border-cyan-800 text-cyan-300 hover:bg-cyan-900 text-xs font-bold transition-colors"
+                >
+                  FUTTATÁS
+                </button>
+              </form>
+
+              {/* Quick Command Buttons */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[10px] text-slate-500 uppercase">PARANCSOK:</span>
+                {['SCAN', 'SIGNALS', 'PERSONNEL', 'LOCATION', 'SPIRAL', 'Δ–82', 'WHO', 'CLEAR'].map((cmd) => (
+                  <button
+                    key={cmd}
+                    type="button"
+                    onClick={() => handleRunCommand(cmd)}
+                    className="px-2 py-0.5 rounded border border-slate-800 bg-[#040816] text-[10px] text-slate-300 hover:border-cyan-600 hover:text-cyan-200 transition-colors"
+                  >
+                    "{cmd}"
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Search & Category Filter Bar */}
           <div className="p-4 border-b border-slate-800 bg-[#040814] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 font-mono text-xs">
