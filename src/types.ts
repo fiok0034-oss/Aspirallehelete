@@ -123,6 +123,7 @@ export interface Bookmark {
   snippet: string;
   createdAt: string;
   percentage: number;
+  note?: string;
 }
 
 export type ReaderTheme = 'night' | 'paper' | 'dark';

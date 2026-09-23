@@ -1,47 +1,173 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArchiveDocument, ArchiveCategory, SpoilerMode } from '../types';
 import { ARCHIVE_DOCUMENTS } from '../data/loreData';
-import { Terminal, FileText, Lock, Unlock, Search, X, AlertOctagon, Filter, Eye } from 'lucide-react';
+import { Terminal, FileText, Lock, Unlock, Search, X, AlertOctagon, Filter, Eye, Sparkles, Shield, AlertTriangle } from 'lucide-react';
 import { audioEngine } from '../utils/audioEngine';
+import { trackDiscovery } from '../utils/discoveryStorage';
 
 interface ArchiveTerminalProps {
   spoilerMode: SpoilerMode;
 }
 
+// 67. Minősítési szintek & VOID dokumentumok
+export type SecurityClassification = 'PUBLIC' | 'RESTRICTED' | 'CLASSIFIED' | 'TOP SECRET' | 'UNKNOWN' | 'VOID';
+
+interface ExtendedArchiveDoc extends ArchiveDocument {
+  secTier: SecurityClassification;
+  customCategory: 'SZEMÉLYEK' | 'HELYSZÍNEK' | 'ENTITÁSOK' | 'OBJEKTUMOK' | 'DOKUMENTUMOK' | 'ANOMÁLIÁK' | 'KOORDINÁTÁK';
+}
+
+const VOID_DOCS: ExtendedArchiveDoc[] = [
+  {
+    id: 'void-001',
+    docNumber: 'ARCHÍV-82 / VOID-001',
+    title: 'A Nem Létező Esemény',
+    category: 'Időanomáliák',
+    customCategory: 'ANOMÁLIÁK',
+    secTier: 'VOID',
+    classification: 'TOP SECRET',
+    date: 'NEM RÖGZÍTETT DÁTUM',
+    location: '82°16’S — Ismeretlen zóna',
+    summary: 'A fájl létezik, de a hozzá tartozó esemény nem található a kronológiában.',
+    transcript: [
+      '[00:00:00] RENDSZER: A fájl bejegyzése automatikusan generálódott.',
+      '[00:00:14] KUTATÓINTÉZET: Nincs jegyzőkönyvezett küldetés a megadott időbélyeghez.',
+      '[00:00:32] RADAR: A jég alatt három személy tartózkodott. Egyikük neve sem szerepel a személyi állományban.',
+      '[00:01:05] VÉGSŐ BEJEGYZÉS: „Aki ezt olvassa, az maga idézte elő az eseményt a megfigyeléssel.”',
+    ],
+    metadata: {
+      'STÁTUSZ': 'VOID / IDŐN KÍVÜLI',
+      'KRONOLÓGIA': 'NINCS KAPCSOLAT',
+      'REZONANCIA': '0.00 Hz',
+    },
+    isSpoiler: true,
+  },
+  {
+    id: 'void-002',
+    docNumber: 'ARCHÍV-82 / VOID-002',
+    title: 'A Megfigyelő Fúziója',
+    category: 'Végtelen',
+    customCategory: 'ENTITÁSOK',
+    secTier: 'VOID',
+    classification: 'TOP SECRET',
+    date: 'FOLYAMATOS',
+    location: 'Tudati koordináta',
+    summary: 'A megfigyelő tudata átvette a megfigyelt helyszín koordinátáit.',
+    transcript: [
+      '[TELEMETRIA] A szenzorok nem a jégpáncélt mérik, hanem a terminál előtt ülő személy idegrendszeri aktivitását.',
+      '[01:12] „A Spirál nem ott van lent. A Spirál a tekintetedben van, amivel lefelé nézel.”',
+      '[01:45] BIZTONSÁGI ZÁR FELOLDVA.',
+    ],
+    metadata: {
+      'STÁTUSZ': 'VOID / TUDATI ANOMÁLIA',
+      'MEGFIGYELŐ': 'AKTÍV LÁTOGATÓ',
+    },
+    isSpoiler: true,
+  },
+];
+
 export const ArchiveTerminal: React.FC<ArchiveTerminalProps> = ({ spoilerMode }) => {
-  const [selectedDoc, setSelectedDoc] = useState<ArchiveDocument | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<ExtendedArchiveDoc | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('ÖSSZES');
+  const [activeTier, setActiveTier] = useState<string>('ÖSSZES');
   const [searchQuery, setSearchQuery] = useState('');
   const [isGlitching, setIsGlitching] = useState(false);
+  const [spiralWhisper, setSpiralWhisper] = useState<string | null>(null);
+  const docVisitCounts = useRef<Record<string, number>>({});
 
+  // 66. Kategóriák felosztása
   const categories = [
     'ÖSSZES',
-    'Georadarfelvételek',
-    'Rádiójelek',
-    'Műholdképek',
-    'Δ–82',
-    'Ismeretlen szimbólumok',
-    'Időanomáliák',
-    'Vörös Porszoba',
-    'Törés',
+    'SZEMÉLYEK',
+    'HELYSZÍNEK',
+    'ENTITÁSOK',
+    'OBJEKTUMOK',
+    'DOKUMENTUMOK',
+    'ANOMÁLIÁK',
+    'KOORDINÁTÁK',
   ];
 
-  const handleOpenDoc = (doc: ArchiveDocument) => {
+  const tiers: SecurityClassification[] = [
+    'PUBLIC',
+    'RESTRICTED',
+    'CLASSIFIED',
+    'TOP SECRET',
+    'UNKNOWN',
+    'VOID',
+  ];
+
+  // Map legacy docs into extended docs with categories and tiers
+  const allDocs: ExtendedArchiveDoc[] = [
+    ...ARCHIVE_DOCUMENTS.map((doc, idx): ExtendedArchiveDoc => {
+      let customCategory: ExtendedArchiveDoc['customCategory'] = 'DOKUMENTUMOK';
+      let secTier: SecurityClassification = 'CLASSIFIED';
+
+      if (doc.category === 'Georadarfelvételek' || doc.category === 'Műholdképek') {
+        customCategory = 'KOORDINÁTÁK';
+        secTier = 'RESTRICTED';
+      } else if (doc.category === 'Eltűnt személyek') {
+        customCategory = 'SZEMÉLYEK';
+        secTier = 'TOP SECRET';
+      } else if (doc.category === 'Végtelen' || doc.category === 'Őrzők') {
+        customCategory = 'ENTITÁSOK';
+        secTier = 'TOP SECRET';
+      } else if (doc.category === 'Időanomáliák' || doc.category === 'Törés') {
+        customCategory = 'ANOMÁLIÁK';
+        secTier = 'UNKNOWN';
+      } else if (doc.category === 'Spirálok' || doc.category === 'Ismeretlen szimbólumok') {
+        customCategory = 'OBJEKTUMOK';
+        secTier = 'CLASSIFIED';
+      }
+
+      if (idx === 0) secTier = 'PUBLIC';
+
+      return {
+        ...doc,
+        secTier,
+        customCategory,
+      };
+    }),
+    ...VOID_DOCS,
+  ];
+
+  // 70. „A SPIRÁL FIGYEL” rendszer
+  useEffect(() => {
+    // Ha sokáig böngészi: „Még mindig keresed?”
+    const timer = setTimeout(() => {
+      setSpiralWhisper('„Még mindig keresed?”');
+    }, 45000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleOpenDoc = (doc: ExtendedArchiveDoc) => {
     setIsGlitching(true);
     audioEngine.playSonarPing();
+
+    // Track repeated visits
+    const count = (docVisitCounts.current[doc.id] || 0) + 1;
+    docVisitCounts.current[doc.id] = count;
+
+    if (count > 2) {
+      setSpiralWhisper('„Ezt már egyszer láttad.”');
+    }
+
+    trackDiscovery.archiveOpened(doc.id);
+
     setTimeout(() => {
       setSelectedDoc(doc);
       setIsGlitching(false);
     }, 280);
   };
 
-  const filteredDocs = ARCHIVE_DOCUMENTS.filter((doc) => {
-    const matchesCat = activeCategory === 'ÖSSZES' || doc.category === activeCategory;
+  const filteredDocs = allDocs.filter((doc) => {
+    const matchesCat = activeCategory === 'ÖSSZES' || doc.customCategory === activeCategory;
+    const matchesTier = activeTier === 'ÖSSZES' || doc.secTier === activeTier;
     const matchesQuery =
       doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.docNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.summary.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCat && matchesQuery;
+    return matchesCat && matchesTier && matchesQuery;
   });
 
   return (
@@ -51,16 +177,28 @@ export const ArchiveTerminal: React.FC<ArchiveTerminalProps> = ({ spoilerMode })
         <div className="text-center space-y-4 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded border border-cyan-900/60 bg-cyan-950/20 text-cyan-300 font-mono text-xs tracking-widest uppercase">
             <Terminal className="w-3.5 h-3.5" />
-            <span>KATONAI & TUDOMÁNYOS ADATBÁZIS</span>
+            <span>KATONAI & TUDOMÁNYOS ÉLŐ ADATBÁZIS</span>
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-cinzel font-bold text-slate-100 tracking-wide">
-            INTERAKTÍV „ARCHÍV-82” TERMINÁL
+            ARCHÍV-82 TERMINÁL
           </h2>
           <p className="text-slate-400 font-light text-base sm:text-lg">
-            Hozzáférés a McMurdo és a Genfi Kutatóintézet zárt archívumához. Vizsgáld meg a feloldott
-            dossziékat, radarvázlatokat és a rejtélyes Δ–82 kódkészletet!
+            Hozzáférés a McMurdo és a Genfi Kutatóintézet titkosított anyagaihoz. Vizsgáld meg a feloldott aktákat, az anomália-jelentéseket és a zárolt VOID dokumentumokat!
           </p>
         </div>
+
+        {/* 70. „A SPIRÁL FIGYEL” Rejtett reakció banner */}
+        {spiralWhisper && (
+          <div className="max-w-xl mx-auto p-3 rounded border border-cyan-400/80 bg-[#030919]/90 backdrop-blur-sm text-center font-cinzel text-cyan-200 text-sm tracking-widest animate-pulse flex items-center justify-between">
+            <span className="mx-auto">{spiralWhisper}</span>
+            <button
+              onClick={() => setSpiralWhisper(null)}
+              className="text-slate-500 hover:text-slate-300 text-xs font-mono ml-2"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Terminal Window Box */}
         <div className="rounded border border-cyan-950/90 bg-[#030712] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.9)]">
@@ -68,11 +206,11 @@ export const ArchiveTerminal: React.FC<ArchiveTerminalProps> = ({ spoilerMode })
           <div className="bg-[#050A18] border-b border-cyan-900/50 p-3 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
             <div className="flex items-center gap-2 text-cyan-400">
               <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-pulse" />
-              <span className="font-bold tracking-wider">TERMINAL // ARCHÍV-82 SECURE_NODE v4.19</span>
+              <span className="font-bold tracking-wider">TERMINAL // ARCHÍV-82 SECURE_NODE v4.82</span>
             </div>
             <div className="flex items-center gap-4 text-slate-500 text-[11px]">
-              <span>BIZTONSÁGI SZINT: KORLÁTOZOTT</span>
-              <span className="text-cyan-400/80">KAPCSOLAT: ÉLŐ</span>
+              <span>MINŐSÍTÉSI FILTER: {activeTier}</span>
+              <span className="text-cyan-400/80">KAPCSOLAT: ÉLŐ // Δ-82</span>
             </div>
           </div>
 
@@ -85,7 +223,7 @@ export const ArchiveTerminal: React.FC<ArchiveTerminalProps> = ({ spoilerMode })
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Keresés aktaszám, cím vagy kulcsszó alapján..."
+                placeholder="Keresés aktaszám, személy, helyszín vagy kulcsszó alapján..."
                 className="w-full pl-9 pr-4 py-2 rounded bg-slate-950 border border-slate-800 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 text-xs"
               />
             </div>
@@ -97,15 +235,15 @@ export const ArchiveTerminal: React.FC<ArchiveTerminalProps> = ({ spoilerMode })
             </div>
           </div>
 
-          {/* Category Pills Bar */}
-          <div className="p-3 bg-[#03060F] border-b border-slate-900 overflow-x-auto flex items-center gap-1.5 scrollbar-none">
+          {/* 66. Kategóriák sáv */}
+          <div className="p-2.5 bg-[#03060F] border-b border-slate-900 overflow-x-auto flex items-center gap-1.5 scrollbar-none">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`px-3 py-1 rounded text-[11px] font-mono whitespace-nowrap transition-all border ${
                   activeCategory === cat
-                    ? 'border-cyan-500/70 bg-cyan-950/60 text-cyan-200'
+                    ? 'border-cyan-500/80 bg-cyan-950/70 text-cyan-200 font-bold'
                     : 'border-slate-800/80 bg-slate-950/40 text-slate-400 hover:text-slate-200'
                 }`}
               >
@@ -114,129 +252,154 @@ export const ArchiveTerminal: React.FC<ArchiveTerminalProps> = ({ spoilerMode })
             ))}
           </div>
 
+          {/* 67. Minősítési szintek szűrő sáv */}
+          <div className="px-3 py-2 bg-[#02040c] border-b border-cyan-950/60 overflow-x-auto flex items-center gap-2 text-[10px] font-mono">
+            <span className="text-slate-500 uppercase">MINŐSÍTÉS:</span>
+            <button
+              onClick={() => setActiveTier('ÖSSZES')}
+              className={`px-2 py-0.5 rounded ${
+                activeTier === 'ÖSSZES' ? 'bg-cyan-500 text-black font-bold' : 'text-slate-400'
+              }`}
+            >
+              ÖSSZES
+            </button>
+            {tiers.map((tier) => (
+              <button
+                key={tier}
+                onClick={() => setActiveTier(tier)}
+                className={`px-2 py-0.5 rounded border transition-colors ${
+                  activeTier === tier
+                    ? 'bg-cyan-950 border-cyan-400 text-cyan-300 font-bold'
+                    : 'border-slate-800 text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                {tier === 'VOID' ? '⚡ VOID' : tier}
+              </button>
+            ))}
+          </div>
+
           {/* Document Dossier Grid */}
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 min-h-[300px]">
-            {filteredDocs.map((doc) => (
-              <div
-                key={doc.id}
-                onClick={() => handleOpenDoc(doc)}
-                className="group p-4 rounded border border-slate-800/80 bg-[#050A14] hover:border-cyan-500/50 hover:bg-[#071222] transition-all cursor-pointer flex flex-col justify-between space-y-3"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <span className="text-cyan-400 font-bold">{doc.docNumber}</span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded border uppercase text-[9px] ${
-                        doc.classification === 'TOP SECRET'
-                          ? 'border-rose-900/60 bg-rose-950/40 text-rose-300'
-                          : 'border-amber-900/60 bg-amber-950/40 text-amber-300'
-                      }`}
-                    >
-                      {doc.classification}
-                    </span>
+            {filteredDocs.map((doc) => {
+              const isVoid = doc.secTier === 'VOID';
+
+              return (
+                <div
+                  key={doc.id}
+                  onClick={() => handleOpenDoc(doc)}
+                  className={`group p-4 rounded border transition-all duration-300 cursor-pointer flex flex-col justify-between ${
+                    isVoid
+                      ? 'border-fuchsia-500/80 bg-[#120419] hover:border-fuchsia-300 shadow-[0_0_15px_rgba(217,70,239,0.2)]'
+                      : 'border-slate-800/80 bg-[#050B14]/80 hover:border-cyan-500/60 hover:bg-[#071120]'
+                  }`}
+                >
+                  <div className="space-y-2.5">
+                    {/* Badge & Classification */}
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-cyan-400/90 font-bold">{doc.docNumber}</span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${
+                          isVoid
+                            ? 'border-fuchsia-400 bg-fuchsia-950 text-fuchsia-300'
+                            : doc.secTier === 'TOP SECRET'
+                            ? 'border-rose-700 bg-rose-950/60 text-rose-300'
+                            : doc.secTier === 'UNKNOWN'
+                            ? 'border-amber-700 bg-amber-950/60 text-amber-300'
+                            : 'border-cyan-800 bg-cyan-950 text-cyan-300'
+                        }`}
+                      >
+                        {doc.secTier}
+                      </span>
+                    </div>
+
+                    <h4 className="font-cinzel text-base font-bold text-slate-100 group-hover:text-cyan-300 transition-colors">
+                      {doc.title}
+                    </h4>
+
+                    <p className="text-xs text-slate-400 line-clamp-2 font-light">
+                      {doc.summary}
+                    </p>
                   </div>
 
-                  <h3 className="text-sm font-cinzel font-bold text-slate-200 group-hover:text-cyan-300 transition-colors">
-                    {doc.title}
-                  </h3>
-
-                  <p className="text-xs text-slate-400 line-clamp-3 font-light leading-relaxed">
-                    {doc.summary}
-                  </p>
+                  <div className="mt-4 pt-3 border-t border-slate-900 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                    <span>{doc.customCategory}</span>
+                    <span className="text-cyan-400 group-hover:underline">Megnyitás →</span>
+                  </div>
                 </div>
-
-                <div className="pt-2 border-t border-slate-900 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                  <span>{doc.date}</span>
-                  <span className="text-cyan-400 group-hover:underline">MEGNYITÁS →</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        {/* Glitch Overlay during file open */}
-        {isGlitching && (
-          <div className="fixed inset-0 z-50 bg-cyan-950/40 backdrop-blur-sm flex items-center justify-center pointer-events-none animate-glitch">
-            <div className="font-mono text-cyan-300 text-sm tracking-widest bg-black/80 p-4 border border-cyan-500">
-              DECRYPTING ARCHÍV-82 PAYLOAD...
-            </div>
-          </div>
-        )}
-
-        {/* Dossier Detail Modal */}
+        {/* Single Document Modal Reader */}
         {selectedDoc && (
-          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="max-w-3xl w-full rounded border border-cyan-800 bg-[#040915] p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-[0_0_50px_rgba(2,132,199,0.3)] font-mono text-xs">
-              {/* Top Banner */}
-              <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <div className="max-w-2xl w-full rounded border border-cyan-800/80 bg-[#030814] p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-[0_0_60px_rgba(2,132,199,0.4)]">
+              {/* Header */}
+              <div className="flex items-start justify-between border-b border-cyan-950/80 pb-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-rose-300 text-[10px] font-bold">
-                      {selectedDoc.classification}
-                    </span>
+                  <div className="flex items-center gap-2 font-mono text-xs">
                     <span className="text-cyan-400 font-bold">{selectedDoc.docNumber}</span>
+                    <span className="px-2 py-0.5 rounded bg-cyan-950 border border-cyan-700 text-cyan-300 text-[10px]">
+                      {selectedDoc.secTier}
+                    </span>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-cinzel font-bold text-white">
+                  <h3 className="font-cinzel text-2xl font-bold text-white">
                     {selectedDoc.title}
                   </h3>
-                  <div className="text-[11px] text-slate-400 flex flex-wrap gap-3">
-                    <span>HELYSZÍN: {selectedDoc.location}</span>
-                    <span>DÁTUM: {selectedDoc.date}</span>
-                    <span>KATEGÓRIA: {selectedDoc.category}</span>
-                  </div>
+                  <p className="text-xs font-mono text-slate-400">
+                    {selectedDoc.location} // {selectedDoc.date}
+                  </p>
                 </div>
+
                 <button
                   onClick={() => setSelectedDoc(null)}
-                  className="p-1.5 rounded border border-slate-700 text-slate-400 hover:text-white"
+                  className="p-1.5 rounded-full text-slate-400 hover:text-white"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Status HUD Header */}
-              <div className="p-3 rounded border border-cyan-950 bg-cyan-950/20 text-[11px] text-cyan-300 space-y-1">
-                <div>ARCHÍV-82/Δ STATUS: VERIFIED</div>
-                <div>SIGNAL: DETECTED // FREQUENCY 50MHz</div>
-                <div>LOCATION: 82°16’S / 36°01’E</div>
-              </div>
-
               {/* Summary */}
-              <div className="space-y-2 text-slate-300 font-sans text-sm leading-relaxed">
-                <div className="font-mono text-xs text-slate-500 uppercase tracking-wider">ÖSSZEFOGLALÓ</div>
-                <p>{selectedDoc.summary}</p>
+              <div className="p-3.5 rounded bg-cyan-950/30 border border-cyan-900/50 text-cyan-100 text-sm leading-relaxed">
+                {selectedDoc.summary}
               </div>
 
-              {/* Transcript / Content */}
-              <div className="space-y-2 border-t border-slate-800 pt-4">
-                <div className="text-slate-500 uppercase tracking-wider text-[11px]">
-                  RÖGZÍTETT TELEMETRIA ÉS ÁTIRAT
-                </div>
-                <div className="p-4 rounded border border-slate-800 bg-slate-950 space-y-1.5 text-slate-300 leading-relaxed">
+              {/* Transcript */}
+              <div className="space-y-2">
+                <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">
+                  Lehallgatási és vizsgálati jegyzőkönyv:
+                </span>
+                <div className="p-4 rounded bg-black/70 border border-cyan-950 font-mono text-xs text-slate-300 space-y-2">
                   {selectedDoc.transcript.map((line, idx) => (
-                    <div key={idx} className="font-mono text-[11px]">
+                    <div key={idx} className="leading-relaxed">
                       {line}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Metadata Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-slate-800 pt-4 text-[11px]">
+              {/* Metadata tags */}
+              <div className="grid grid-cols-2 gap-2 font-mono text-[11px] text-slate-400 border-t border-cyan-950/80 pt-4">
                 {Object.entries(selectedDoc.metadata).map(([key, val]) => (
-                  <div key={key} className="p-2 rounded bg-slate-900/60 border border-slate-800">
+                  <div key={key} className="p-2 rounded bg-slate-900/50 border border-slate-800">
                     <span className="text-slate-500 block text-[9px] uppercase">{key}</span>
                     <span className="text-slate-200">{val}</span>
                   </div>
                 ))}
               </div>
 
-              {/* Footer */}
-              <div className="flex justify-end pt-4 border-t border-slate-800">
+              {/* Close Button */}
+              <div className="flex justify-end pt-2">
                 <button
                   onClick={() => setSelectedDoc(null)}
-                  className="px-6 py-2 rounded border border-cyan-500/60 bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-200 text-xs font-mono uppercase"
+                  className="px-6 py-2 rounded bg-cyan-500 hover:bg-cyan-400 text-black font-mono text-xs uppercase font-bold"
                 >
-                  DOSSZIÉ ZÁRÁSA
+                  DOSSZIÉ BEZÁRÁSA
                 </button>
               </div>
             </div>

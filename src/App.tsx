@@ -10,21 +10,30 @@ import { Hero } from './components/Hero';
 import { StoryIntro } from './components/StoryIntro';
 import { StoryOverview } from './components/StoryOverview';
 import { AntarcticMap } from './components/AntarcticMap';
+import { InteractiveGlobe } from './components/InteractiveGlobe';
+import { SubIceWorld } from './components/SubIceWorld';
 import { SpiralExperience } from './components/SpiralExperience';
 import { StoryTimeline } from './components/StoryTimeline';
 import { CharacterDatabase } from './components/CharacterDatabase';
+import { PsychologicalMap } from './components/PsychologicalMap';
 import { GuardianDatabase } from './components/GuardianDatabase';
 import { NineSpiralsMap } from './components/NineSpiralsMap';
 import { ArchiveTerminal } from './components/ArchiveTerminal';
 import { RedDustRoom } from './components/RedDustRoom';
 import { FractureCity } from './components/FractureCity';
 import { ChapterPreview } from './components/ChapterPreview';
+import { BehindTheScenes } from './components/BehindTheScenes';
 import { AuthorAndEditions } from './components/AuthorAndEditions';
 import { ReaderTheoriesAndFrequency } from './components/ReaderTheoriesAndFrequency';
 import { Footer } from './components/Footer';
 import { BookReader } from './components/BookReader';
+import { CinematicIntro } from './components/CinematicIntro';
+import { UserProfileModal } from './components/UserProfileModal';
+import { NamelessSpiralModal } from './components/NamelessSpiralModal';
 import { BOOK_CHAPTERS } from './data/bookData';
-import { BookOpen, Sparkles, X } from 'lucide-react';
+import { BookOpen, Sparkles, X, Compass, Globe } from 'lucide-react';
+import { getDiscoveryState, trackDiscovery } from './utils/discoveryStorage';
+import { audioEngine } from './utils/audioEngine';
 
 export default function App() {
   const [spoilerMode, setSpoilerMode] = useState<SpoilerMode>('spoiler-free');
@@ -32,6 +41,20 @@ export default function App() {
   const [readerChapterIndex, setReaderChapterIndex] = useState(0);
   const [savedProgress, setSavedProgress] = useState<{ chapterIndex: number; percentage: number } | null>(null);
   const [showResumeBanner, setShowResumeBanner] = useState(true);
+
+  // 62. Cinematic intro visibility
+  const [introDismissed, setIntroDismissed] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('spiral_intro_seen') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Modal dialog states
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNamelessOpen, setIsNamelessOpen] = useState(false);
+  const [hasSecret10Ready, setHasSecret10Ready] = useState(false);
 
   // Load saved progress from localStorage
   useEffect(() => {
@@ -47,6 +70,23 @@ export default function App() {
       // ignore
     }
   }, [isReaderOpen]);
+
+  // Check if user is eligible for the 10th Nameless Spiral event
+  useEffect(() => {
+    const checkStatus = () => {
+      const state = getDiscoveryState();
+      if (
+        state.secretsFound.length >= 3 ||
+        state.chaptersRead.length >= 2 ||
+        state.archivesOpened.length >= 3
+      ) {
+        setHasSecret10Ready(true);
+      }
+    };
+    checkStatus();
+    window.addEventListener('spiral_discovery_update', checkStatus);
+    return () => window.removeEventListener('spiral_discovery_update', checkStatus);
+  }, []);
 
   const handleOpenReader = (chapterIdx?: number) => {
     if (typeof chapterIdx === 'number') {
@@ -66,23 +106,58 @@ export default function App() {
     }
   };
 
+  const handleDismissIntro = (targetSection?: string) => {
+    try {
+      sessionStorage.setItem('spiral_intro_seen', 'true');
+    } catch {
+      // ignore
+    }
+    setIntroDismissed(true);
+
+    if (targetSection) {
+      setTimeout(() => {
+        scrollTo(targetSection);
+      }, 100);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#020408] text-slate-200 font-sans selection:bg-cyan-500/30 selection:text-cyan-200 relative overflow-x-hidden">
+      {/* 62. Cinematic Intro Modal Overlay (First load) */}
+      {!introDismissed && (
+        <CinematicIntro
+          onEnterReader={() => {
+            handleDismissIntro();
+            handleOpenReader(0);
+          }}
+          onEnterUniverse={() => {
+            handleDismissIntro('hero');
+          }}
+          onEnterArchive={() => {
+            handleDismissIntro('archive');
+          }}
+          onClose={() => {
+            handleDismissIntro();
+          }}
+        />
+      )}
+
       {/* Top Main Navigation */}
       <Navigation
         spoilerMode={spoilerMode}
         onToggleSpoilerMode={(mode) => setSpoilerMode(mode)}
         onOpenReader={() => handleOpenReader()}
         onOpenTerminalQuick={() => scrollTo('archive')}
+        onOpenProfile={() => setIsProfileOpen(true)}
       />
 
       {/* Main Experience Flow */}
       <main>
-        {/* 1. Cinematic Hero Section with Breathing Spiral & Night Sky */}
+        {/* 1. Cinematic Hero Section */}
         <Hero
           onEnterStory={() => scrollTo('intro')}
           onExploreMysteries={() => scrollTo('story')}
-          onNavigateToCoordinates={() => scrollTo('map')}
+          onNavigateToCoordinates={() => scrollTo('antarctic-globe')}
           onOpenReader={() => handleOpenReader()}
         />
 
@@ -95,45 +170,71 @@ export default function App() {
           onExploreSpiral={() => scrollTo('spiral')}
         />
 
-        {/* 4. Interactive Antarctic Map with Hotspot & Sub-Ice Inspection */}
+        {/* 63. Interactive Antarctic 3D/2.5D Globe */}
+        <InteractiveGlobe onDiveUnderIce={() => scrollTo('sub-ice')} />
+
+        {/* 64 & 65. The Sub-Ice Subterranean World & Digital Archaeology Scanner */}
+        <SubIceWorld />
+
+        {/* 4. Topographical & Station Radar Map */}
         <AntarcticMap onDiveComplete={() => scrollTo('spiral')} />
 
         {/* 5. The Interactive Spiral Consciousness */}
         <SpiralExperience />
 
-        {/* 6. 28-Phase Story Timeline */}
+        {/* 6. 3-Layer Story Timeline (Kronológia / Emlékezet / Valóság) */}
         <StoryTimeline
           spoilerMode={spoilerMode}
           onUnlockFullUniverse={() => setSpoilerMode('full-universe')}
         />
 
-        {/* 7. Character Dossiers & The Infinite Entity */}
+        {/* 7. Character Dossiers */}
         <CharacterDatabase spoilerMode={spoilerMode} />
 
-        {/* 8. Guardians Database & The 10th Nameless Guardian */}
+        {/* 76 & 77. Psychological Relationship Graph */}
+        <PsychologicalMap />
+
+        {/* 8. Guardians Database */}
         <GuardianDatabase spoilerMode={spoilerMode} />
 
-        {/* 9. Nine Spirals Constellation Map & Hidden 10th Node */}
+        {/* 9. Nine Spirals Constellation Map */}
         <NineSpiralsMap />
 
         {/* 10. Atmospheric Chamber: The Red Dust Room */}
         <RedDustRoom />
 
-        {/* 11. The Fracture City: Glitched Architecture & Time Anomaly */}
+        {/* 11. The Fracture City */}
         <FractureCity />
 
-        {/* 12. Interactive Classified Archive-82 Terminal */}
+        {/* 66–68 & 70. Archive-82 Live Terminal with VOID files & Spiral Reactions */}
         <ArchiveTerminal spoilerMode={spoilerMode} />
 
-        {/* 13. Official Chapter Previews & Excerpts (28 Chapters) */}
+        {/* 82 & 83. Behind the Scenes & Author Notes */}
+        <BehindTheScenes />
+
+        {/* 13. Official Chapter Previews & Excerpts (42 Chapters) */}
         <ChapterPreview onOpenReader={(idx) => handleOpenReader(idx)} />
 
-        {/* 14. Author Profile (Csurik Konrád) & Book Editions Preorder */}
+        {/* 14. Author Profile (Csurik Konrád) & Book Editions */}
         <AuthorAndEditions />
 
-        {/* 15. Community Theories & Secret 50 MHz Transmission Decoder */}
+        {/* 78–80. Mysteries Database & Reader Theories with Local Submission */}
         <ReaderTheoriesAndFrequency />
       </main>
+
+      {/* 100. Rare Endgame "10" Floating Orb */}
+      {hasSecret10Ready && !isNamelessOpen && (
+        <button
+          onClick={() => {
+            audioEngine.playSonarPing();
+            setIsNamelessOpen(true);
+          }}
+          title="Tizedik Rejtély"
+          className="fixed bottom-24 right-6 z-40 w-12 h-12 rounded-full border border-cyan-400 bg-[#040916]/90 flex items-center justify-center text-cyan-200 font-mono font-bold text-sm shadow-[0_0_20px_rgba(56,189,248,0.5)] hover:scale-110 hover:border-white transition-all animate-pulse"
+        >
+          10
+        </button>
+      )}
 
       {/* Floating Resume Reading Quick Access Pill */}
       {savedProgress && savedProgress.chapterIndex > 0 && showResumeBanner && !isReaderOpen && (
@@ -160,6 +261,22 @@ export default function App() {
         </div>
       )}
 
+      {/* 71 & 72. User Profile Modal */}
+      {isProfileOpen && (
+        <UserProfileModal
+          onClose={() => setIsProfileOpen(false)}
+          onOpenReader={() => {
+            setIsProfileOpen(false);
+            handleOpenReader();
+          }}
+        />
+      )}
+
+      {/* 100. The Nameless 10th Spiral Modal */}
+      {isNamelessOpen && (
+        <NamelessSpiralModal onClose={() => setIsNamelessOpen(false)} />
+      )}
+
       {/* Full-Screen Online Book Reader Modal */}
       {isReaderOpen && (
         <BookReader
@@ -178,4 +295,3 @@ export default function App() {
     </div>
   );
 }
-

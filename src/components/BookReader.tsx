@@ -42,6 +42,7 @@ import {
 import { BOOK_CHAPTERS, BOOK_METADATA } from '../data/bookData';
 import { CHARACTERS_DATA, GUARDIANS_DATA } from '../data/loreData';
 import { audioEngine } from '../utils/audioEngine';
+import { trackDiscovery } from '../utils/discoveryStorage';
 
 interface BookReaderProps {
   initialChapterIndex?: number;
@@ -160,6 +161,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
         lastReadTimestamp: Date.now(),
       };
       localStorage.setItem(STORAGE_PROGRESS_KEY, JSON.stringify(progress));
+      trackDiscovery.chapterRead(currentChapterIndex);
     } catch {
       // ignore
     }
@@ -273,15 +275,18 @@ export const BookReader: React.FC<BookReaderProps> = ({
   };
 
   // Bookmark management
-  const addBookmark = (paragraphIdx: number = 0) => {
+  const [bookmarkNoteInput, setBookmarkNoteInput] = useState('');
+  const [showNotePrompt, setShowNotePrompt] = useState(false);
+
+  const addBookmark = (paragraphIdx: number = 0, customSnippet?: string, noteText?: string) => {
     const snippet =
-      currentChapter.paragraphs[paragraphIdx]?.substring(0, 95) || currentChapter.title;
+      customSnippet || currentChapter.paragraphs[paragraphIdx]?.substring(0, 95) || currentChapter.title;
     const newBookmark: Bookmark = {
       id: `bm-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       chapterIndex: currentChapterIndex,
       chapterTitle: currentChapter.title,
       paragraphIndex: paragraphIdx,
-      snippet: snippet + '...',
+      snippet: snippet + (snippet.length > 95 ? '...' : ''),
       createdAt: new Date().toLocaleDateString('hu-HU', {
         month: 'short',
         day: 'numeric',
@@ -289,9 +294,12 @@ export const BookReader: React.FC<BookReaderProps> = ({
         minute: '2-digit',
       }),
       percentage: totalPercentage,
+      note: noteText?.trim() || (bookmarkNoteInput.trim() ? bookmarkNoteInput.trim() : undefined),
     };
     setBookmarks((prev) => [newBookmark, ...prev]);
-    showToast('Könyvjelző elmentve a fejezethez!');
+    setBookmarkNoteInput('');
+    setShowNotePrompt(false);
+    showToast(noteText || bookmarkNoteInput.trim() ? 'Könyvjelző és jegyzet elmentve!' : 'Könyvjelző elmentve a fejezethez!');
   };
 
   const removeBookmark = (id: string, e: React.MouseEvent) => {
@@ -768,6 +776,47 @@ export const BookReader: React.FC<BookReaderProps> = ({
         <article className="max-w-3xl mx-auto space-y-10 sm:space-y-12">
           {/* Chapter Header Banner */}
           <div className="text-center space-y-4 pb-8 border-b border-cyan-950/40">
+            {/* Contextual Lore Indicator Banner */}
+            {currentChapterIndex <= 1 && (
+              <div
+                onClick={() => {
+                  setWorldTab('locations');
+                  setIsWorldOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-cyan-400/70 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 text-xs font-mono cursor-pointer transition-all shadow-[0_0_15px_rgba(56,189,248,0.25)] hover:scale-105 select-none mb-1"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <span>🌀 ÚJ ARCHÍV ADAT ELÉRHETŐ: 82°16’S Koordináta & McMurdo</span>
+                <ChevronRight className="w-3 h-3" />
+              </div>
+            )}
+            {currentChapterIndex === 4 && (
+              <div
+                onClick={() => {
+                  setWorldTab('characters');
+                  setIsWorldOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-cyan-400/70 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 text-xs font-mono cursor-pointer transition-all shadow-[0_0_15px_rgba(56,189,248,0.25)] hover:scale-105 select-none mb-1"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <span>🌀 ÚJ ARCHÍV ADAT ELÉRHETŐ: Viktor dossziéja & A Küszöb</span>
+                <ChevronRight className="w-3 h-3" />
+              </div>
+            )}
+            {currentChapterIndex >= 9 && currentChapterIndex <= 12 && (
+              <div
+                onClick={() => {
+                  setWorldTab('guardians');
+                  setIsWorldOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-cyan-400/70 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 text-xs font-mono cursor-pointer transition-all shadow-[0_0_15px_rgba(56,189,248,0.25)] hover:scale-105 select-none mb-1"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <span>🌀 ÚJ ARCHÍV ADAT ELÉRHETŐ: A Végtelen & A Kilenc Őrző</span>
+                <ChevronRight className="w-3 h-3" />
+              </div>
+            )}
+
             {currentChapter.partTitle && (
               <div className="text-xs sm:text-sm font-mono tracking-widest text-cyan-400/90 uppercase font-semibold">
                 {currentChapter.partTitle}
@@ -1111,15 +1160,35 @@ export const BookReader: React.FC<BookReaderProps> = ({
               </button>
             </div>
 
-            {/* Quick Add Current Location */}
-            <div className="p-4 border-b border-cyan-950/60 bg-cyan-950/20">
+            {/* Quick Add Current Location with note */}
+            <div className="p-4 border-b border-cyan-950/60 bg-cyan-950/20 space-y-2">
               <button
-                onClick={() => addBookmark(0)}
+                onClick={() => setShowNotePrompt(!showNotePrompt)}
                 className="w-full py-2.5 px-4 rounded border border-cyan-400/80 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 font-mono text-xs tracking-wider flex items-center justify-center gap-2 transition-all"
               >
                 <BookmarkIcon className="w-3.5 h-3.5 text-cyan-300" />
                 <span>AKTUÁLIS HELY KÖNYVJELZŐZÉSE</span>
               </button>
+
+              {showNotePrompt && (
+                <div className="space-y-2 pt-2 animate-fade-in">
+                  <input
+                    type="text"
+                    value={bookmarkNoteInput}
+                    onChange={(e) => setBookmarkNoteInput(e.target.value)}
+                    placeholder="Miért mentetted el? (személyes jegyzet)..."
+                    className="w-full p-2 text-xs rounded bg-black/80 border border-cyan-900 text-slate-200 font-sans focus:outline-none focus:border-cyan-400"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => addBookmark(0)}
+                      className="px-3 py-1 rounded bg-cyan-500 text-black font-mono text-[11px] font-bold uppercase"
+                    >
+                      Mentés jegyzettel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Bookmarks List */}
@@ -1129,7 +1198,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
                   <BookmarkIcon className="w-8 h-8 mx-auto opacity-30 text-cyan-400" />
                   <p>Még nincsenek elmentett könyvjelzőid.</p>
                   <p className="text-[11px] text-slate-600">
-                    Olvasás közben bármikor megjelölheted a fontos sorokat!
+                    Olvasás közben bármikor megjelölheted a fontos sorokat személyes jegyzettel!
                   </p>
                 </div>
               ) : (
@@ -1155,6 +1224,15 @@ export const BookReader: React.FC<BookReaderProps> = ({
                     <p className="text-xs text-slate-300 italic font-light line-clamp-2">
                       „{bm.snippet}”
                     </p>
+
+                    {bm.note && (
+                      <div className="p-2 rounded bg-amber-950/30 border border-amber-500/30 text-amber-200 text-xs font-sans">
+                        <span className="font-mono text-[9px] text-amber-400 block uppercase font-bold">
+                          Miért mentettem el:
+                        </span>
+                        <span>{bm.note}</span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-1 border-t border-slate-800">
                       <span>{bm.createdAt}</span>

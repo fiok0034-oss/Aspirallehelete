@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SpoilerMode } from '../types';
-import { Volume2, VolumeX, ShieldAlert, ShieldCheck, Menu, X, Compass, Terminal, BookOpen, Gamepad2, ExternalLink } from 'lucide-react';
+import { Volume2, VolumeX, ShieldAlert, ShieldCheck, Menu, X, Compass, Terminal, BookOpen, Gamepad2, ExternalLink, User } from 'lucide-react';
 import { audioEngine } from '../utils/audioEngine';
 
 interface NavigationProps {
@@ -11,6 +11,7 @@ interface NavigationProps {
   onToggleAudio?: () => void;
   onOpenTerminalQuick?: () => void;
   onOpenReader?: () => void;
+  onOpenProfile?: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -21,6 +22,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   onToggleAudio: externalToggleAudio,
   onOpenTerminalQuick,
   onOpenReader,
+  onOpenProfile,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [internalAudioActive, setInternalAudioActive] = useState(false);
@@ -149,6 +151,21 @@ export const Navigation: React.FC<NavigationProps> = ({
             <span className="lg:hidden">JÁTÉK</span>
             <ExternalLink className="w-2.5 h-2.5 text-cyan-400/70 group-hover:translate-x-0.5 transition-transform" />
           </a>
+
+          {/* User Discovery Profile Button */}
+          {onOpenProfile && (
+            <button
+              onClick={() => {
+                audioEngine.playSonarPing();
+                onOpenProfile();
+              }}
+              title="Személyes olvasói útvonal és megszerzett adatok"
+              className="p-2 rounded border border-cyan-800/80 bg-cyan-950/30 text-cyan-300 hover:text-white hover:border-cyan-400 transition-all text-xs flex items-center gap-1.5"
+            >
+              <User className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden md:inline font-mono text-[11px]">ÚTVONALAD</span>
+            </button>
+          )}
 
           {/* Quick Terminal Icon */}
           {onOpenTerminalQuick && (
