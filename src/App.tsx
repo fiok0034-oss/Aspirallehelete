@@ -27,7 +27,6 @@ import { AuthorAndEditions } from './components/AuthorAndEditions';
 import { ReaderTheoriesAndFrequency } from './components/ReaderTheoriesAndFrequency';
 import { Footer } from './components/Footer';
 import { BookReader } from './components/BookReader';
-import { CinematicIntro } from './components/CinematicIntro';
 import { UserProfileModal } from './components/UserProfileModal';
 import { NamelessSpiralModal } from './components/NamelessSpiralModal';
 import { BOOK_CHAPTERS } from './data/bookData';
@@ -41,15 +40,6 @@ export default function App() {
   const [readerChapterIndex, setReaderChapterIndex] = useState(0);
   const [savedProgress, setSavedProgress] = useState<{ chapterIndex: number; percentage: number } | null>(null);
   const [showResumeBanner, setShowResumeBanner] = useState(true);
-
-  // 62. Cinematic intro visibility
-  const [introDismissed, setIntroDismissed] = useState<boolean>(() => {
-    try {
-      return sessionStorage.getItem('spiral_intro_seen') === 'true';
-    } catch {
-      return false;
-    }
-  });
 
   // Modal dialog states
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -106,42 +96,8 @@ export default function App() {
     }
   };
 
-  const handleDismissIntro = (targetSection?: string) => {
-    try {
-      sessionStorage.setItem('spiral_intro_seen', 'true');
-    } catch {
-      // ignore
-    }
-    setIntroDismissed(true);
-
-    if (targetSection) {
-      setTimeout(() => {
-        scrollTo(targetSection);
-      }, 100);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#020408] text-slate-200 font-sans selection:bg-cyan-500/30 selection:text-cyan-200 relative overflow-x-hidden">
-      {/* 62. Cinematic Intro Modal Overlay (First load) */}
-      {!introDismissed && (
-        <CinematicIntro
-          onEnterReader={() => {
-            handleDismissIntro();
-            handleOpenReader(0);
-          }}
-          onEnterUniverse={() => {
-            handleDismissIntro('hero');
-          }}
-          onEnterArchive={() => {
-            handleDismissIntro('archive');
-          }}
-          onClose={() => {
-            handleDismissIntro();
-          }}
-        />
-      )}
-
       {/* Top Main Navigation */}
       <Navigation
         spoilerMode={spoilerMode}
