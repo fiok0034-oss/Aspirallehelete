@@ -25,6 +25,8 @@ import {
   Globe,
   Sliders,
   Type,
+  Gamepad2,
+  ExternalLink,
 } from 'lucide-react';
 import {
   BookChapter,
@@ -1579,6 +1581,17 @@ export const BookReader: React.FC<BookReaderProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <a
+                  href="https://aspiralleheleteinteractivebookgame.netlify.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="sm:col-span-2 p-3.5 rounded border border-cyan-400/80 bg-gradient-to-r from-cyan-950/80 to-blue-950/80 hover:from-cyan-900/90 hover:to-blue-900/90 text-cyan-200 hover:text-white font-mono text-xs tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(56,189,248,0.25)] font-bold group"
+                >
+                  <Gamepad2 className="w-4 h-4 text-cyan-300 group-hover:scale-110 transition-transform" />
+                  <span>🎮 BELÉPÉS AZ INTERAKTÍV KÖNYV JÁTÉKBA (ÚJ LAPON)</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
+                </a>
+
                 <button
                   onClick={() => {
                     setEndingStep(0);

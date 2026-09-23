@@ -1,5 +1,5 @@
 import React from 'react';
-import { Compass, ChevronUp, Radio, Heart } from 'lucide-react';
+import { Compass, ChevronUp, Radio, Heart, Gamepad2, ExternalLink } from 'lucide-react';
 import { audioEngine } from '../utils/audioEngine';
 
 export const Footer: React.FC = () => {
@@ -106,6 +106,18 @@ export const Footer: React.FC = () => {
               <li>
                 <a href="#theories" className="hover:text-cyan-300 transition-colors">
                   Olvasói Elméletek
+                </a>
+              </li>
+              <li className="pt-1">
+                <a
+                  href="https://aspiralleheleteinteractivebookgame.netlify.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:text-cyan-200 transition-colors flex items-center gap-1 font-semibold"
+                >
+                  <Gamepad2 className="w-3 h-3 text-cyan-400" />
+                  <span>Interaktív Játék</span>
+                  <ExternalLink className="w-2.5 h-2.5 text-cyan-400/70" />
                 </a>
               </li>
             </ul>

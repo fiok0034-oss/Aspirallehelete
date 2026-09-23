@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Compass, ChevronDown, Radio } from 'lucide-react';
+import { Compass, ChevronDown, Radio, Gamepad2, ExternalLink, BookOpen } from 'lucide-react';
 import { audioEngine } from '../utils/audioEngine';
 
 interface HeroProps {
@@ -256,24 +256,45 @@ export const Hero: React.FC<HeroProps> = ({
           „A jég alatt nem csak a múlt rejtőzik.”
         </p>
 
-        {/* Primary Book Reader CTA (Requirement 37) */}
-        {onOpenReader && (
-          <div className="pt-2 max-w-md mx-auto space-y-2">
-            <button
-              onClick={() => {
-                audioEngine.playSonarPing();
-                onOpenReader();
-              }}
-              className="w-full py-4 px-8 rounded bg-gradient-to-r from-cyan-500/25 via-cyan-400/35 to-sky-400/25 hover:from-cyan-500/40 hover:via-cyan-400/50 hover:to-sky-400/40 border-2 border-cyan-400 text-white font-mono text-base sm:text-lg tracking-widest uppercase font-bold transition-all duration-300 shadow-[0_0_35px_rgba(56,189,248,0.4)] hover:shadow-[0_0_55px_rgba(56,189,248,0.65)] hover:scale-[1.02] flex items-center justify-center gap-3 group"
+        {/* Dual Primary Experiences: Book Reader & Interactive Companion Game */}
+        <div className="pt-2 max-w-lg mx-auto space-y-4">
+          {/* Primary Book Reader CTA */}
+          {onOpenReader && (
+            <div className="space-y-1.5">
+              <button
+                onClick={() => {
+                  audioEngine.playSonarPing();
+                  onOpenReader();
+                }}
+                className="w-full py-4 px-6 rounded bg-gradient-to-r from-cyan-500/25 via-cyan-400/35 to-sky-400/25 hover:from-cyan-500/40 hover:via-cyan-400/50 hover:to-sky-400/40 border-2 border-cyan-400 text-white font-mono text-base sm:text-lg tracking-widest uppercase font-bold transition-all duration-300 shadow-[0_0_35px_rgba(56,189,248,0.4)] hover:shadow-[0_0_55px_rgba(56,189,248,0.65)] hover:scale-[1.02] flex items-center justify-center gap-3 group"
+              >
+                <BookOpen className="w-5 h-5 text-cyan-300 group-hover:scale-125 transition-transform" />
+                <span>OLVASD EL A KÖNYVET</span>
+              </button>
+              <p className="text-xs sm:text-sm font-mono text-cyan-300/85 tracking-wide">
+                „Lépj be közvetlenül A Spirál Lehelete világába.”
+              </p>
+            </div>
+          )}
+
+          {/* Interactive Game Companion CTA */}
+          <div className="space-y-1.5">
+            <a
+              href="https://aspiralleheleteinteractivebookgame.netlify.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => audioEngine.playSonarPing()}
+              className="w-full py-3.5 px-6 rounded bg-gradient-to-r from-cyan-950/90 via-blue-950/80 to-slate-900/90 hover:from-cyan-900/95 hover:via-blue-900/90 hover:to-slate-800/95 border-2 border-cyan-400/80 hover:border-cyan-300 text-cyan-100 hover:text-white font-mono text-sm sm:text-base tracking-widest uppercase font-bold transition-all duration-300 shadow-[0_0_30px_rgba(56,189,248,0.3)] hover:shadow-[0_0_50px_rgba(56,189,248,0.6)] hover:scale-[1.02] flex items-center justify-center gap-2.5 group"
             >
-              <span className="text-xl group-hover:scale-125 transition-transform">📖</span>
-              <span>OLVASD EL A KÖNYVET</span>
-            </button>
-            <p className="text-xs sm:text-sm font-mono text-cyan-300/85 tracking-wide">
-              „Lépj be közvetlenül A Spirál Lehelete világába.”
+              <Gamepad2 className="w-5 h-5 text-cyan-300 group-hover:scale-125 transition-transform" />
+              <span>BELÉPÉS AZ INTERAKTÍV MÓDBA</span>
+              <ExternalLink className="w-4 h-4 text-cyan-400/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </a>
+            <p className="text-xs sm:text-sm font-mono text-cyan-200/90 tracking-wide">
+              „Éld át a történetet interaktív döntéseken, történeti elágazásokon és az Archív-82 fájljain keresztül!”
             </p>
           </div>
-        )}
+        </div>
 
         {/* Secondary Exploration CTA Buttons */}
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-5">

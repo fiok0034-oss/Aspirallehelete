@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SpoilerMode } from '../types';
-import { Volume2, VolumeX, ShieldAlert, ShieldCheck, Menu, X, Compass, Terminal, BookOpen } from 'lucide-react';
+import { Volume2, VolumeX, ShieldAlert, ShieldCheck, Menu, X, Compass, Terminal, BookOpen, Gamepad2, ExternalLink } from 'lucide-react';
 import { audioEngine } from '../utils/audioEngine';
 
 interface NavigationProps {
@@ -135,6 +135,21 @@ export const Navigation: React.FC<NavigationProps> = ({
             </button>
           )}
 
+          {/* Interactive Game Link */}
+          <a
+            href="https://aspiralleheleteinteractivebookgame.netlify.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => audioEngine.playSonarPing()}
+            title="🎮 Interaktív Könyv Játék megnyitása új lapon"
+            className="px-2.5 sm:px-3 py-1.5 rounded border border-cyan-400/80 bg-gradient-to-r from-cyan-950/70 to-blue-950/70 hover:from-cyan-900/80 hover:to-blue-900/80 text-cyan-200 hover:text-white font-mono text-xs tracking-wider flex items-center gap-1.5 shadow-[0_0_12px_rgba(56,189,248,0.25)] hover:shadow-[0_0_20px_rgba(56,189,248,0.5)] transition-all font-semibold group"
+          >
+            <Gamepad2 className="w-3.5 h-3.5 text-cyan-300 group-hover:scale-110 transition-transform" />
+            <span className="hidden lg:inline">INTERAKTÍV JÁTÉK</span>
+            <span className="lg:hidden">JÁTÉK</span>
+            <ExternalLink className="w-2.5 h-2.5 text-cyan-400/70 group-hover:translate-x-0.5 transition-transform" />
+          </a>
+
           {/* Quick Terminal Icon */}
           {onOpenTerminalQuick && (
             <button
@@ -215,6 +230,22 @@ export const Navigation: React.FC<NavigationProps> = ({
               <span>📖 OLVASD EL A KÖNYVET (ONLINE OLVASÓ)</span>
             </button>
           )}
+
+          {/* Interactive Game Mobile Link */}
+          <a
+            href="https://aspiralleheleteinteractivebookgame.netlify.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              audioEngine.playSonarPing();
+            }}
+            className="w-full py-3 px-4 rounded border border-cyan-400/80 bg-gradient-to-r from-cyan-950/80 to-blue-950/70 text-cyan-200 font-mono text-xs tracking-wider flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(56,189,248,0.25)] font-bold hover:border-cyan-300 transition-all"
+          >
+            <Gamepad2 className="w-4 h-4 text-cyan-300" />
+            <span>🎮 INTERAKTÍV JÁTÉK (ÚJ LAPON)</span>
+            <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
+          </a>
 
           <div className="grid grid-cols-2 gap-2 pt-1">
             {navLinks.map((link) => (
