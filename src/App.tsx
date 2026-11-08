@@ -23,7 +23,7 @@ import { RedDustRoom } from './components/RedDustRoom';
 import { FractureCity } from './components/FractureCity';
 import { ChapterPreview } from './components/ChapterPreview';
 import { BehindTheScenes } from './components/BehindTheScenes';
-import { AuthorAndEditions } from './components/AuthorAndEditions';
+import { AuthorSection } from './components/AuthorSection';
 import { ReaderTheoriesAndFrequency } from './components/ReaderTheoriesAndFrequency';
 import { Footer } from './components/Footer';
 import { BookReader } from './components/BookReader';
@@ -171,8 +171,8 @@ export default function App() {
         {/* 13. Official Chapter Previews & Excerpts (42 Chapters) */}
         <ChapterPreview onOpenReader={(idx) => handleOpenReader(idx)} />
 
-        {/* 14. Author Profile (Csurik Konrád) & Book Editions */}
-        <AuthorAndEditions />
+        {/* 14. Author Profile (Csurik Konrád) & Free Digital Book Universe */}
+        <AuthorSection onOpenReader={() => handleOpenReader(0)} />
 
         {/* 78–80. Mysteries Database & Reader Theories with Local Submission */}
         <ReaderTheoriesAndFrequency />

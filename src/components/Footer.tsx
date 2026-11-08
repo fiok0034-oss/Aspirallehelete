@@ -99,11 +99,6 @@ export const Footer: React.FC = () => {
                 </a>
               </li>
               <li>
-                <a href="#editions" className="hover:text-cyan-300 transition-colors">
-                  Könyv Megrendelése
-                </a>
-              </li>
-              <li>
                 <a href="#theories" className="hover:text-cyan-300 transition-colors">
                   Olvasói Elméletek
                 </a>
