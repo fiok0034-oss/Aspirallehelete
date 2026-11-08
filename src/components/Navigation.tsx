@@ -203,45 +203,49 @@ export const Navigation: React.FC<NavigationProps> = ({
                 audioEngine.playSonarPing();
                 setMenuOpen(!menuOpen);
               }}
-              className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded border transition-all duration-200 shrink-0 ${
+              className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded border transition-all duration-300 shrink-0 ${
                 menuOpen
-                  ? 'border-cyan-400 bg-cyan-950/90 text-cyan-200 shadow-[0_0_15px_rgba(56,189,248,0.4)]'
-                  : 'border-cyan-900/70 bg-slate-900/80 text-cyan-300 hover:text-white hover:border-cyan-400 hover:shadow-[0_0_10px_rgba(56,189,248,0.25)]'
+                  ? 'border-cyan-400 bg-cyan-950/90 text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.5)] rotate-90'
+                  : 'border-cyan-900/70 bg-slate-900/80 text-cyan-300 hover:text-white hover:border-cyan-400 hover:shadow-[0_0_12px_rgba(56,189,248,0.3)]'
               }`}
               aria-label={menuOpen ? 'Navigációs menü bezárása' : 'Navigációs menü megnyitása'}
               aria-expanded={menuOpen}
               title="Teljes navigációs menü megnyitása"
             >
-              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {menuOpen ? <X className="w-5 h-5 text-cyan-300" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
       </header>
 
       {/* ============================================================== */}
-      {/* 2. HAMBURGER MENÜ – AZ ÖSSZES TÖBBI FUNKCIÓVAL ÉS LINKKEL      */}
+      {/* 2. HAMBURGER MENÜ – LENYÍLÓ FUTURISZTIKUS CIÁNKÉK NEON MENÜ    */}
       {/* ============================================================== */}
       {menuOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end animate-fade-in">
-          {/* Backdrop (tap to close) */}
+        <div className="fixed inset-0 top-16 z-40 flex justify-end">
+          {/* Backdrop (finom elhalványuló háttér, koppintásra bezár) */}
           <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity"
+            className="fixed inset-0 top-16 bg-black/80 backdrop-blur-md animate-cyber-backdrop"
             onClick={() => setMenuOpen(false)}
           />
 
-          {/* Sliding Flyout Drawer */}
-          <div className="relative z-10 w-full max-w-sm sm:max-w-md h-full bg-[#03060C]/98 border-l border-cyan-900/80 shadow-[0_0_60px_rgba(0,0,0,0.95)] flex flex-col animate-slide-left overflow-hidden">
-            {/* Drawer Top Header */}
-            <div className="h-16 px-5 border-b border-cyan-950 flex items-center justify-between shrink-0 bg-[#040814]">
+          {/* Lenyíló futurisztikus ciánkék neon fiók / konzol */}
+          <div className="relative z-10 w-full sm:max-w-md h-[calc(100vh-4rem)] bg-[#03060C]/98 border-l border-cyan-500/40 cyber-neon-glow flex flex-col animate-cyber-dropdown overflow-hidden">
+            {/* Ciánkék lézer-sugár fénycsík a felső peremen */}
+            <div className="h-[2px] w-full cyber-laser-beam shadow-[0_0_12px_#22d3ee] shrink-0" />
+
+            {/* Fiók felső fejléce */}
+            <div className="h-14 px-5 border-b border-cyan-950/90 flex items-center justify-between shrink-0 bg-[#040814]/90 backdrop-blur-sm animate-cyber-item-1">
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded-full border border-cyan-500/50 flex items-center justify-center bg-cyan-950/40 text-xs">
+                <div className="w-6 h-6 rounded-full border border-cyan-400/60 flex items-center justify-center bg-cyan-950/60 shadow-[0_0_10px_rgba(6,182,212,0.35)] text-xs">
                   🌀
                 </div>
                 <div>
-                  <div className="font-cinzel text-xs font-bold tracking-wider text-slate-100">
+                  <div className="font-cinzel text-xs font-bold tracking-wider text-slate-100 flex items-center gap-2">
                     ARCHÍV-82 NAVIGÁCIÓ
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping inline-block" />
                   </div>
-                  <div className="font-mono text-[9px] text-cyan-400/70">
+                  <div className="font-mono text-[9px] text-cyan-400/80">
                     ÖSSZES FUNKCIÓ ÉS TÉMAKÖR
                   </div>
                 </div>
@@ -249,17 +253,17 @@ export const Navigation: React.FC<NavigationProps> = ({
 
               <button
                 onClick={() => setMenuOpen(false)}
-                className="p-1.5 rounded border border-slate-800 text-slate-400 hover:text-white hover:border-cyan-400 transition-colors"
+                className="p-1.5 rounded border border-cyan-900/60 bg-cyan-950/30 text-slate-400 hover:text-cyan-200 hover:border-cyan-400 hover:shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all"
                 aria-label="Menü bezárása"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Scrollable Drawer Body */}
+            {/* Görgethető fióktartalom */}
             <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6 overscroll-contain scrollbar-thin">
               {/* PRIMARY EXPERIENCE CTAs: OLVASÁS & INTERAKTÍV JÁTÉK */}
-              <div className="space-y-2.5">
+              <div className="space-y-2.5 animate-cyber-item-2">
                 <div className="text-[10px] font-mono text-cyan-400/80 tracking-widest uppercase flex items-center gap-1.5">
                   <Sparkles className="w-3 h-3 text-cyan-400" />
                   <span>KÖNYV & ÉLMÉNYEK</span>
@@ -319,7 +323,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               </div>
 
               {/* CORE TOOLS: FELHASZNÁLÓI PROFIL, ARCHÍV-82, HANGVEZÉRLÉS */}
-              <div className="space-y-2.5">
+              <div className="space-y-2.5 animate-cyber-item-3">
                 <div className="text-[10px] font-mono text-cyan-400/80 tracking-widest uppercase flex items-center gap-1.5">
                   <Terminal className="w-3 h-3 text-cyan-400" />
                   <span>RENDSZER ÉS IRÁNYÍTÁS</span>
@@ -391,7 +395,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               </div>
 
               {/* UNIVERSE SECTIONS: ALL 10 SECTION LINKS */}
-              <div className="space-y-2.5 pt-2 border-t border-cyan-950/80">
+              <div className="space-y-2.5 pt-2 border-t border-cyan-950/80 animate-cyber-item-4">
                 <div className="text-[10px] font-mono text-cyan-400/80 tracking-widest uppercase flex items-center gap-1.5">
                   <Compass className="w-3 h-3 text-cyan-400" />
                   <span>UNIVERZUM FEJEZETEK ÉS TÉMAKÖRÖK</span>

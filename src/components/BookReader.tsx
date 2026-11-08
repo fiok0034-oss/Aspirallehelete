@@ -153,10 +153,13 @@ export const BookReader: React.FC<BookReaderProps> = ({
   // Scroll container ref for reading area
   const contentContainerRef = useRef<HTMLDivElement | null>(null);
 
+  // Chapter scroll reading percentage (0% to 100%)
+  const [chapterScrollProgress, setChapterScrollProgress] = useState<number>(0);
+
   // Current chapter data
   const currentChapter: BookChapter = BOOK_CHAPTERS[currentChapterIndex] || BOOK_CHAPTERS[0];
 
-  // Total reading percentage
+  // Total reading percentage across the entire book
   const totalPercentage = Math.round(((currentChapterIndex + 1) / BOOK_CHAPTERS.length) * 100);
 
   // Estimated reading time for current chapter (~200 words/min)
@@ -199,12 +202,49 @@ export const BookReader: React.FC<BookReaderProps> = ({
     }
   }, [bookmarks]);
 
-  // Scroll to top when changing chapters
+  // Handler to compute chapter scroll progress
+  const updateScrollProgress = () => {
+    if (!contentContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = contentContainerRef.current;
+    const maxScroll = scrollHeight - clientHeight;
+    if (maxScroll <= 2) {
+      setChapterScrollProgress(100);
+    } else {
+      const pct = Math.min(100, Math.max(0, (scrollTop / maxScroll) * 100));
+      setChapterScrollProgress(pct);
+    }
+  };
+
+  // Scroll to top and reset chapter progress when changing chapters
   useEffect(() => {
     if (contentContainerRef.current) {
       contentContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    setChapterScrollProgress(0);
   }, [currentChapterIndex]);
+
+  // Track chapter scroll progress with resize and font settings changes
+  useEffect(() => {
+    const container = contentContainerRef.current;
+    if (!container) return;
+
+    const onScroll = () => {
+      updateScrollProgress();
+    };
+
+    container.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+
+    // Initial calculation after render / layout reflow
+    updateScrollProgress();
+    const timer = setTimeout(updateScrollProgress, 120);
+
+    return () => {
+      container.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      clearTimeout(timer);
+    };
+  }, [currentChapterIndex, settings.fontSize, settings.fontFamily, settings.lineHeight]);
 
   // Keyboard navigation & Ctrl+F search shortcut
   useEffect(() => {
@@ -604,10 +644,10 @@ export const BookReader: React.FC<BookReaderProps> = ({
         {/* Center: Reading Progress Badge */}
         <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-950/80 bg-cyan-950/20 font-mono text-xs text-cyan-300">
           <Clock className="w-3.5 h-3.5 text-cyan-400" />
-          <span>{totalPercentage}% elolvasva</span>
+          <span>Fejezet: <strong className="text-cyan-200">{Math.round(chapterScrollProgress)}%</strong></span>
           <span className="text-slate-600">•</span>
           <span className="text-slate-400">
-            {currentChapterIndex + 1} / {BOOK_CHAPTERS.length} fejezet
+            {currentChapterIndex + 1} / {BOOK_CHAPTERS.length} fejezet ({totalPercentage}%)
           </span>
         </div>
 
@@ -776,6 +816,26 @@ export const BookReader: React.FC<BookReaderProps> = ({
         </div>
       </header>
 
+      {/* CHAPTER READING PROGRESS BAR (Tracks reading percentage of the current chapter) */}
+      <div
+        className="w-full h-1 sm:h-1.5 bg-slate-950/80 border-b border-cyan-950/50 relative z-30 shrink-0 overflow-hidden"
+        role="progressbar"
+        aria-valuenow={Math.round(chapterScrollProgress)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        title={`Fejezet haladás: ${Math.round(chapterScrollProgress)}%`}
+      >
+        <div
+          className="h-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-teal-300 transition-[width] duration-150 ease-out shadow-[0_0_12px_rgba(34,211,238,0.55)] relative"
+          style={{ width: `${chapterScrollProgress}%` }}
+        >
+          {/* Subtle glowing leading edge */}
+          {chapterScrollProgress > 0 && chapterScrollProgress < 100 && (
+            <div className="absolute right-0 top-0 bottom-0 w-1 bg-white shadow-[0_0_8px_#ffffff,0_0_14px_#22d3ee] rounded-full" />
+          )}
+        </div>
+      </div>
+
       {/* FLOATING IN-READER SEARCH NAVIGATION BAR (When keyword is active) */}
       {activeSearchKeyword && (
         <div className="bg-[#050e20]/95 border-b border-cyan-500/50 px-4 py-2 text-xs font-mono flex flex-wrap items-center justify-between gap-3 shadow-[0_4px_25px_rgba(0,0,0,0.6)] z-30 shrink-0 backdrop-blur-md animate-slide-down">
@@ -840,17 +900,10 @@ export const BookReader: React.FC<BookReaderProps> = ({
         </div>
       )}
 
-      {/* READING PROGRESS BAR (Top line) */}
-      <div className="w-full h-1 bg-slate-800/40 relative z-30 shrink-0">
-        <div
-          className="h-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-sky-300 transition-all duration-300"
-          style={{ width: `${totalPercentage}%` }}
-        />
-      </div>
-
       {/* 2. MAIN READING CONTAINER */}
       <div
         ref={contentContainerRef}
+        onScroll={updateScrollProgress}
         className="flex-1 overflow-y-auto px-4 sm:px-8 py-10 sm:py-16 scrollbar-thin scrollbar-thumb-cyan-900/40 scrollbar-track-transparent relative"
       >
         <article className="max-w-3xl mx-auto space-y-10 sm:space-y-12">
