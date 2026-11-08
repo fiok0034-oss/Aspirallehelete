@@ -27,6 +27,14 @@ import {
   Type,
   Gamepad2,
   ExternalLink,
+  Headphones,
+  Play,
+  Pause,
+  Square,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import {
   BookChapter,
@@ -43,6 +51,7 @@ import { BOOK_CHAPTERS, BOOK_METADATA } from '../data/bookData';
 import { CHARACTERS_DATA, GUARDIANS_DATA } from '../data/loreData';
 import { audioEngine } from '../utils/audioEngine';
 import { trackDiscovery } from '../utils/discoveryStorage';
+import { useSpeechNarration } from '../utils/speechNarration';
 
 interface BookReaderProps {
   initialChapterIndex?: number;
@@ -123,6 +132,20 @@ export const BookReader: React.FC<BookReaderProps> = ({
   const [worldTab, setWorldTab] = useState<'characters' | 'guardians' | 'locations'>('characters');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isAudioSettingsOpen, setIsAudioSettingsOpen] = useState(false);
+
+  // Web Speech API AI Narration Engine
+  const speech = useSpeechNarration((chapterIdx, pIdx) => {
+    if (currentChapterIndex !== chapterIdx) {
+      setCurrentChapterIndex(chapterIdx);
+    }
+    setTimeout(() => {
+      const el = document.getElementById(`reader-para-${pIdx}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 120);
+  });
 
   // Cinematic ending sequence state (Step 0: normal, 1: "VÉGE", 2: "VAGY MÉGSEM?", 3: "A Spirál figyel.", 4: Menu)
   const [endingStep, setEndingStep] = useState<number>(0);
@@ -194,9 +217,19 @@ export const BookReader: React.FC<BookReaderProps> = ({
           setSearchQuery(activeSearchKeyword);
         }
       }
+      // Space toggles narration if active and not inside input
+      if (e.key === ' ' && (speech.isPlaying || speech.isPaused)) {
+        const activeTag = document.activeElement?.tagName?.toLowerCase();
+        if (activeTag !== 'input' && activeTag !== 'textarea') {
+          e.preventDefault();
+          speech.togglePlayPause();
+          return;
+        }
+      }
       // Escape closes open modals
       if (e.key === 'Escape') {
-        if (isSearchOpen) setIsSearchOpen(false);
+        if (isAudioSettingsOpen) setIsAudioSettingsOpen(false);
+        else if (isSearchOpen) setIsSearchOpen(false);
         else if (isTocOpen) setIsTocOpen(false);
         else if (isBookmarksOpen) setIsBookmarksOpen(false);
         else if (isSettingsOpen) setIsSettingsOpen(false);
@@ -206,7 +239,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSearchOpen, isTocOpen, isBookmarksOpen, isSettingsOpen, isWorldOpen, activeSearchKeyword, searchQuery]);
+  }, [isSearchOpen, isTocOpen, isBookmarksOpen, isSettingsOpen, isWorldOpen, isAudioSettingsOpen, activeSearchKeyword, searchQuery, speech]);
 
   // Toast notification timer
   useEffect(() => {
@@ -220,6 +253,12 @@ export const BookReader: React.FC<BookReaderProps> = ({
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
+  };
+
+  const handleCloseReader = () => {
+    audioEngine.playSonarPing();
+    speech.stop();
+    onClose();
   };
 
   // Fullscreen toggle
@@ -237,10 +276,14 @@ export const BookReader: React.FC<BookReaderProps> = ({
   const goToChapter = (idx: number) => {
     if (idx >= 0 && idx < BOOK_CHAPTERS.length) {
       audioEngine.playSonarPing();
+      if (speech.isPlaying || speech.isPaused) {
+        speech.stop();
+      }
       setCurrentChapterIndex(idx);
       setIsTocOpen(false);
       setIsSearchOpen(false);
       setIsBookmarksOpen(false);
+      setIsAudioSettingsOpen(false);
     }
   };
 
@@ -538,10 +581,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
         {/* Left: Back button & Book Title */}
         <div className="flex items-center gap-3 sm:gap-4">
           <button
-            onClick={() => {
-              audioEngine.playSonarPing();
-              onClose();
-            }}
+            onClick={handleCloseReader}
             title="Vissza a könyv-univerzum főoldalára"
             className={`px-3 py-1.5 rounded text-xs font-mono tracking-wider flex items-center gap-2 border ${themeStyle.border} ${themeStyle.buttonHover} transition-all`}
           >
@@ -571,8 +611,48 @@ export const BookReader: React.FC<BookReaderProps> = ({
           </span>
         </div>
 
-        {/* Right: Actions (Search, TOC, Bookmarks, World, Settings, Fullscreen) */}
+        {/* Right: Actions (Audio Narration, Search, TOC, Bookmarks, World, Settings, Fullscreen) */}
         <div className="flex items-center gap-1 sm:gap-2">
+          {/* Listen to Excerpt / Audio Narration Header Button */}
+          <button
+            onClick={() => {
+              if (speech.isPlaying) {
+                speech.togglePlayPause();
+              } else if (speech.isPaused) {
+                speech.togglePlayPause();
+              } else {
+                audioEngine.playSonarPing();
+                speech.startExcerpt(currentChapterIndex, 0, 'excerpt');
+                showToast(`🎧 Részlet felolvasása: ${currentChapter.title}`);
+              }
+            }}
+            title={
+              speech.isPlaying
+                ? 'Felolvasás szüneteltetése [Szóköz]'
+                : speech.isPaused
+                ? 'Felolvasás folytatása [Szóköz]'
+                : 'Részlet meghallgatása (AI felolvasás a Web Speech API-val)'
+            }
+            className={`px-2.5 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 border transition-all ${
+              speech.isPlaying
+                ? 'border-cyan-400 bg-cyan-950/80 text-cyan-200 shadow-[0_0_15px_rgba(56,189,248,0.35)] animate-pulse-slow'
+                : speech.isPaused
+                ? 'border-amber-500/70 bg-amber-950/40 text-amber-300'
+                : `${themeStyle.border} ${themeStyle.buttonHover} text-slate-300 hover:text-cyan-300`
+            }`}
+          >
+            <Headphones className={`w-4 h-4 ${speech.isPlaying ? 'text-cyan-300 animate-bounce' : 'text-cyan-400'}`} />
+            <span className="hidden md:inline font-bold">
+              {speech.isPlaying ? 'SZÜNET' : speech.isPaused ? 'FOLYTATÁS' : 'RÉSZLET'}
+            </span>
+            {speech.isPlaying && (
+              <span className="flex items-center gap-0.5 ml-0.5">
+                <span className="w-0.5 h-2 bg-cyan-400 animate-pulse" />
+                <span className="w-0.5 h-3.5 bg-cyan-300 animate-pulse delay-75" />
+                <span className="w-0.5 h-2 bg-cyan-400 animate-pulse delay-150" />
+              </span>
+            )}
+          </button>
           {/* Search Button */}
           <button
             onClick={() => {
@@ -847,6 +927,69 @@ export const BookReader: React.FC<BookReaderProps> = ({
                 <BookmarkIcon className="w-3 h-3" /> Fejezet megjelölése
               </button>
             </div>
+
+            {/* Listen to Excerpt / AI Narration Action Strip */}
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
+              <button
+                onClick={() => {
+                  audioEngine.playSonarPing();
+                  if (speech.isPlaying && speech.activeChapterIndex === currentChapterIndex) {
+                    speech.togglePlayPause();
+                  } else if (speech.isPaused && speech.activeChapterIndex === currentChapterIndex) {
+                    speech.togglePlayPause();
+                  } else {
+                    speech.startExcerpt(currentChapterIndex, 0, 'excerpt');
+                    showToast(`🎧 Részlet meghallgatása: ${currentChapter.title} (3 bekezdés)`);
+                  }
+                }}
+                className={`px-4 py-2 rounded-full border text-xs font-mono flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(56,189,248,0.2)] hover:scale-105 ${
+                  speech.isPlaying && speech.activeChapterIndex === currentChapterIndex
+                    ? 'border-cyan-400 bg-cyan-950/90 text-cyan-200 shadow-[0_0_20px_rgba(56,189,248,0.4)]'
+                    : speech.isPaused && speech.activeChapterIndex === currentChapterIndex
+                    ? 'border-amber-400/80 bg-amber-950/50 text-amber-300'
+                    : 'border-cyan-500/60 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-200'
+                }`}
+              >
+                <Headphones className="w-4 h-4 text-cyan-400" />
+                <span className="font-bold">
+                  {speech.isPlaying && speech.activeChapterIndex === currentChapterIndex
+                    ? 'RÉSZLET SZÜNETELTETÉSE'
+                    : speech.isPaused && speech.activeChapterIndex === currentChapterIndex
+                    ? 'RÉSZLET FOLYTATÁSA'
+                    : 'RÉSZLET MEGHALLGATÁSA (AI NARRÁCIÓ)'}
+                </span>
+                <span className="text-[10px] text-cyan-400/80 px-1.5 py-0.5 rounded bg-black/40 border border-cyan-800">
+                  KIVONAT
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  audioEngine.playSonarPing();
+                  speech.startExcerpt(currentChapterIndex, 0, 'full');
+                  showToast(`🎧 Teljes fejezet felolvasása: ${currentChapter.title}`);
+                }}
+                title="A fejezet összes bekezdésének folyamatos felolvasása"
+                className={`px-3.5 py-2 rounded-full border text-xs font-mono flex items-center gap-1.5 transition-all ${
+                  speech.isPlaying && speech.activeChapterIndex === currentChapterIndex && speech.mode === 'full'
+                    ? 'border-cyan-400 bg-cyan-950/80 text-cyan-200'
+                    : 'border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                <Play className="w-3.5 h-3.5 text-cyan-400" />
+                <span>TELJES FEJEZET</span>
+              </button>
+
+              {(speech.isPlaying || speech.isPaused) && (
+                <button
+                  onClick={() => setIsAudioSettingsOpen(!isAudioSettingsOpen)}
+                  title="Hangbeállítások (Sebesség, Hangszín, Hang kiválasztása)"
+                  className="p-2 rounded-full border border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-cyan-300 transition-all"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Chapter Paragraphs */}
@@ -859,17 +1002,39 @@ export const BookReader: React.FC<BookReaderProps> = ({
             {currentChapter.paragraphs.map((para, pIdx) => {
               const isFirst = pIdx === 0;
               const isTarget = targetParagraphIndex === pIdx;
+              const isSpeakingThisPara =
+                (speech.isPlaying || speech.isPaused) &&
+                speech.activeChapterIndex === currentChapterIndex &&
+                speech.currentParagraphIndex === pIdx;
 
               return (
                 <div
                   key={pIdx}
                   id={`reader-para-${pIdx}`}
                   className={`group relative transition-all duration-300 rounded-md p-3 -mx-3 ${
-                    isTarget
+                    isSpeakingThisPara
+                      ? 'ring-2 ring-cyan-400 bg-gradient-to-r from-cyan-950/60 via-cyan-950/30 to-[#040816] shadow-[0_0_30px_rgba(56,189,248,0.35)] border-l-4 border-l-cyan-400'
+                      : isTarget
                       ? 'ring-2 ring-cyan-400 bg-cyan-950/50 shadow-[0_0_25px_rgba(56,189,248,0.4)]'
                       : 'hover:bg-cyan-950/10'
                   }`}
                 >
+                  {isSpeakingThisPara && (
+                    <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-cyan-500/30 text-[11px] font-mono text-cyan-300 font-semibold select-none">
+                      <Headphones className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                      <span>AI NARRÁTOR OLVASSA // {pIdx + 1}. BEKEZDÉS</span>
+                      {speech.isPlaying ? (
+                        <span className="flex items-center gap-0.5 ml-auto">
+                          <span className="w-1 h-2.5 bg-cyan-400 animate-pulse" />
+                          <span className="w-1 h-4 bg-cyan-300 animate-pulse delay-75" />
+                          <span className="w-1 h-3 bg-cyan-400 animate-pulse delay-150" />
+                        </span>
+                      ) : (
+                        <span className="ml-auto text-amber-300 text-[10px] uppercase tracking-wider">SZÜNETELTETVE</span>
+                      )}
+                    </div>
+                  )}
+
                   <p
                     className={`${themeStyle.bodyText} ${
                       isFirst
@@ -882,8 +1047,21 @@ export const BookReader: React.FC<BookReaderProps> = ({
                       : para}
                   </p>
 
-                  {/* Quick paragraph bookmark button on hover */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 flex items-center gap-1 bg-[#060b16]/90 border border-cyan-900/60 rounded px-2 py-0.5 text-[11px] font-mono text-slate-400">
+                  {/* Quick paragraph toolbar on hover */}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 flex items-center gap-1.5 bg-[#060b16]/95 border border-cyan-900/60 rounded px-2 py-0.5 text-[11px] font-mono text-slate-400 shadow-md">
+                    <button
+                      onClick={() => {
+                        audioEngine.playSonarPing();
+                        speech.startExcerpt(currentChapterIndex, pIdx, 'full');
+                        showToast(`🎧 Felolvasás a ${pIdx + 1}. bekezdéstől`);
+                      }}
+                      title="Felolvasás indítása ettől a bekezdéstől"
+                      className="hover:text-cyan-300 flex items-center gap-1 pr-1 border-r border-slate-800"
+                    >
+                      <Headphones className="w-3 h-3 text-cyan-400" />
+                      <span>Hallgatás innen</span>
+                    </button>
+
                     <button
                       onClick={() => addBookmark(pIdx)}
                       title="Könyvjelző ehhez a bekezdéshez"
@@ -1005,6 +1183,21 @@ export const BookReader: React.FC<BookReaderProps> = ({
                     </div>
 
                     <div className="shrink-0 flex items-center gap-1.5 font-mono text-[10px]">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          audioEngine.playSonarPing();
+                          goToChapter(idx);
+                          speech.startExcerpt(idx, 0, 'excerpt');
+                          showToast(`🎧 Részlet felolvasása: ${ch.title}`);
+                        }}
+                        title={`Részlet meghallgatása (${ch.title})`}
+                        className="p-1 rounded border border-cyan-900/60 bg-cyan-950/40 hover:bg-cyan-900 hover:border-cyan-400 text-cyan-400 hover:text-white transition-all"
+                      >
+                        <Headphones className="w-3 h-3" />
+                      </button>
+
                       {isActive ? (
                         <span className="px-1.5 py-0.5 rounded bg-cyan-400 text-slate-950 font-bold">
                           OLVASOD
@@ -1685,7 +1878,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
                 <button
                   onClick={() => {
                     setEndingStep(0);
-                    onClose();
+                    handleCloseReader();
                     if (onNavigateToSection) onNavigateToSection('mysteries');
                   }}
                   className="p-3.5 rounded border border-slate-700 bg-slate-900/80 hover:bg-slate-800 text-slate-200 font-mono text-xs tracking-wider flex items-center justify-center gap-2 transition-all"
@@ -1697,7 +1890,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
                 <button
                   onClick={() => {
                     setEndingStep(0);
-                    onClose();
+                    handleCloseReader();
                   }}
                   className="p-3.5 rounded border border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-300 font-mono text-xs tracking-wider flex items-center justify-center gap-2 transition-all"
                 >
@@ -1718,6 +1911,230 @@ export const BookReader: React.FC<BookReaderProps> = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 10. DOCKED AI SPEECH NARRATION PLAYER BAR */}
+      {(speech.isPlaying || speech.isPaused) && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#040916]/95 border-t border-cyan-500/50 backdrop-blur-md px-4 py-3 shadow-[0_-5px_30px_rgba(0,0,0,0.8)] animate-slide-up">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
+            {/* Left: Active info & visualizer */}
+            <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
+              <div className="w-8 h-8 rounded-full border border-cyan-400 bg-cyan-950/70 flex items-center justify-center shrink-0 shadow-[0_0_12px_rgba(56,189,248,0.4)]">
+                <Headphones className="w-4 h-4 text-cyan-300" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-950 border border-cyan-800 text-cyan-300 font-bold uppercase">
+                    {speech.mode === 'excerpt' ? 'RÉSZLET' : 'TELJES FEJEZET'}
+                  </span>
+                  <span className="text-slate-300 truncate font-semibold text-[11px]">
+                    {BOOK_CHAPTERS[speech.activeChapterIndex ?? currentChapterIndex]?.title}
+                  </span>
+                </div>
+                <div className="text-[10px] text-cyan-400/80 flex items-center gap-2 mt-0.5">
+                  <span>Bekezdés {speech.currentParagraphIndex + 1} / {speech.totalParagraphs}</span>
+                  {speech.isPlaying ? (
+                    <span className="flex items-center gap-0.5 text-cyan-300">
+                      <span className="w-1 h-2 bg-cyan-400 animate-pulse" />
+                      <span className="w-1 h-3.5 bg-cyan-300 animate-pulse delay-75" />
+                      <span className="w-1 h-1.5 bg-cyan-400 animate-pulse delay-150" />
+                      <span className="ml-1 text-[10px]">felolvasás</span>
+                    </span>
+                  ) : (
+                    <span className="text-amber-400 text-[10px]">szüneteltetve</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Center: Playback Controls */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={speech.prevParagraph}
+                title="Előző bekezdés"
+                className="p-2 rounded border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white transition-all"
+              >
+                <SkipBack className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={speech.togglePlayPause}
+                title={speech.isPlaying ? 'Szünet [Szóköz]' : 'Folytatás [Szóköz]'}
+                className="px-4 py-2 rounded border border-cyan-400 bg-cyan-500/20 hover:bg-cyan-500/30 text-white font-bold flex items-center gap-1.5 shadow-[0_0_15px_rgba(56,189,248,0.3)] transition-all"
+              >
+                {speech.isPlaying ? <Pause className="w-4 h-4 text-cyan-300" /> : <Play className="w-4 h-4 text-cyan-300" />}
+                <span className="text-xs">{speech.isPlaying ? 'SZÜNET' : 'LEJÁTSZÁS'}</span>
+              </button>
+
+              <button
+                onClick={speech.nextParagraph}
+                title="Következő bekezdés"
+                className="p-2 rounded border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white transition-all"
+              >
+                <SkipForward className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={speech.stop}
+                title="Leállítás"
+                className="p-2 rounded border border-rose-900/60 bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 hover:text-white transition-all ml-1"
+              >
+                <Square className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Right: Audio settings, Rate switcher & close */}
+            <div className="flex items-center gap-2">
+              {/* Quick rate toggle */}
+              <button
+                onClick={() => {
+                  const rates = [0.8, 0.92, 1.05, 1.2];
+                  const nextIdx = (rates.findIndex((r) => Math.abs(r - speech.rate) < 0.05) + 1) % rates.length;
+                  speech.setRate(rates[nextIdx]);
+                }}
+                title="Beszédsebesség váltása"
+                className="px-2.5 py-1.5 rounded border border-cyan-900/60 bg-cyan-950/40 hover:bg-cyan-900 text-cyan-300 text-[11px] font-bold"
+              >
+                {speech.rate.toFixed(2)}x
+              </button>
+
+              {/* Mode switch */}
+              <button
+                onClick={() => {
+                  const newMode = speech.mode === 'excerpt' ? 'full' : 'excerpt';
+                  speech.startExcerpt(currentChapterIndex, speech.currentParagraphIndex, newMode);
+                }}
+                title="Mód váltása (Kivonat / Teljes fejezet)"
+                className="px-2.5 py-1.5 rounded border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[11px]"
+              >
+                {speech.mode === 'excerpt' ? 'Teljes fejezet' : 'Kivonat'}
+              </button>
+
+              {/* Audio Settings Popover Toggle */}
+              <button
+                onClick={() => setIsAudioSettingsOpen(!isAudioSettingsOpen)}
+                title="Részletes beszédhang beállítások"
+                className={`p-2 rounded border transition-all ${
+                  isAudioSettingsOpen
+                    ? 'border-cyan-400 bg-cyan-950 text-cyan-200'
+                    : 'border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300'
+                }`}
+              >
+                <Sliders className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={speech.stop}
+                className="p-1.5 text-slate-400 hover:text-white ml-1"
+                title="Lejátszó bezárása"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 11. AUDIO NARRATION SETTINGS MODAL / POPOVER */}
+      {isAudioSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-lg border border-cyan-500/60 bg-[#060b18] p-6 space-y-5 shadow-2xl text-xs font-mono text-slate-200">
+            <div className="flex items-center justify-between border-b border-cyan-950/80 pb-3">
+              <div className="flex items-center gap-2 text-cyan-300 font-bold font-cinzel text-sm">
+                <Headphones className="w-4 h-4 text-cyan-400" />
+                <span>AI FELOLVASÁS BEÁLLÍTÁSOK</span>
+              </div>
+              <button
+                onClick={() => setIsAudioSettingsOpen(false)}
+                className="p-1 rounded text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Voice Selection */}
+            <div className="space-y-2">
+              <label className="text-slate-400 text-[11px] uppercase tracking-wider block">
+                Beszédhang (Web Speech API)
+              </label>
+              {speech.availableVoices.length > 0 ? (
+                <select
+                  value={speech.selectedVoiceURI}
+                  onChange={(e) => speech.setVoiceURI(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-slate-950 border border-cyan-950 text-slate-200 focus:outline-none focus:border-cyan-500 font-mono text-xs"
+                >
+                  {speech.availableVoices.map((v) => {
+                    const isHu = v.lang.startsWith('hu');
+                    return (
+                      <option key={v.voiceURI} value={v.voiceURI}>
+                        {isHu ? '🇭🇺 ' : ''}{v.name} ({v.lang})
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <div className="text-slate-500 text-[11px] italic">
+                  A böngésző alapértelmezett rendszerhangja aktív.
+                </div>
+              )}
+            </div>
+
+            {/* Rate Slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-slate-400 uppercase">Beszédtempó</span>
+                <span className="text-cyan-300 font-bold">{speech.rate.toFixed(2)}x</span>
+              </div>
+              <input
+                type="range"
+                min="0.7"
+                max="1.4"
+                step="0.05"
+                value={speech.rate}
+                onChange={(e) => speech.setRate(parseFloat(e.target.value))}
+                className="w-full accent-cyan-400 bg-slate-900 rounded cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>0.7x (Atmoszférikus lassú)</span>
+                <span>1.0x (Normál)</span>
+                <span>1.4x (Gyors)</span>
+              </div>
+            </div>
+
+            {/* Pitch Slider */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-slate-400 uppercase">Hangmagasság (Tónus)</span>
+                <span className="text-cyan-300 font-bold">{speech.pitch.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0.75"
+                max="1.25"
+                step="0.05"
+                value={speech.pitch}
+                onChange={(e) => speech.setPitch(parseFloat(e.target.value))}
+                className="w-full accent-cyan-400 bg-slate-900 rounded cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>Mélyebb sci-fi tónus</span>
+                <span>Természetes</span>
+                <span>Világosabb</span>
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <div className="pt-2 border-t border-cyan-950/80 flex justify-end">
+              <button
+                onClick={() => setIsAudioSettingsOpen(false)}
+                className="px-4 py-2 rounded bg-cyan-950/60 border border-cyan-500/60 hover:bg-cyan-900 text-cyan-200 text-xs font-mono uppercase tracking-wider font-semibold"
+              >
+                KÉSZ
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
