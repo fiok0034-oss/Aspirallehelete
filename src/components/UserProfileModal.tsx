@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { User, BookOpen, Compass, FileText, Sparkles, X, Trash2, CheckCircle2, Shield } from 'lucide-react';
+import { User, BookOpen, Compass, FileText, Sparkles, X, Trash2, CheckCircle2, Shield, Bookmark as BookmarkIcon, ChevronRight } from 'lucide-react';
 import { getDiscoveryState, trackDiscovery, DiscoveryState } from '../utils/discoveryStorage';
 import { audioEngine } from '../utils/audioEngine';
+import { Bookmark } from '../types';
 
 interface UserProfileModalProps {
   onClose: () => void;
-  onOpenReader: () => void;
+  onOpenReader: (chapterIndex?: number, paragraphIndex?: number) => void;
 }
 
 interface CodexItem {
@@ -78,12 +79,47 @@ const CODEX_ITEMS: CodexItem[] = [
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onOpenReader }) => {
   const [state, setState] = useState<DiscoveryState>(getDiscoveryState());
   const [confirmReset, setConfirmReset] = useState(false);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => {
+    try {
+      const raw = localStorage.getItem('spiral_reader_bookmarks');
+      if (raw) return JSON.parse(raw);
+    } catch {
+      // fallback
+    }
+    return [];
+  });
 
   useEffect(() => {
     const handleUpdate = () => setState(getDiscoveryState());
+    const handleBookmarkUpdate = () => {
+      try {
+        const raw = localStorage.getItem('spiral_reader_bookmarks');
+        if (raw) setBookmarks(JSON.parse(raw));
+        else setBookmarks([]);
+      } catch {
+        // ignore
+      }
+    };
     window.addEventListener('spiral_discovery_update', handleUpdate);
-    return () => window.removeEventListener('spiral_discovery_update', handleUpdate);
+    window.addEventListener('spiral_bookmarks_update', handleBookmarkUpdate);
+    return () => {
+      window.removeEventListener('spiral_discovery_update', handleUpdate);
+      window.removeEventListener('spiral_bookmarks_update', handleBookmarkUpdate);
+    };
   }, []);
+
+  const handleDeleteBookmark = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = bookmarks.filter((b) => b.id !== id);
+    setBookmarks(updated);
+    try {
+      localStorage.setItem('spiral_reader_bookmarks', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('spiral_bookmarks_update'));
+    } catch {
+      // ignore
+    }
+    audioEngine.playSonarPing();
+  };
 
   const totalChapters = 42;
   const chaptersReadCount = state.chaptersRead.length;
@@ -242,6 +278,86 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onO
                 );
               })}
             </div>
+          </div>
+
+          {/* 73. MENTETT KÖNYVJELZŐK ÉS BEKEZDÉSEK (Clickable return links) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-mono text-xs uppercase tracking-widest text-cyan-400 font-bold flex items-center gap-1.5">
+                <BookmarkIcon className="w-3.5 h-3.5 fill-cyan-400 text-cyan-400" />
+                <span>MENTETT KÖNYVJELZŐK & BEKEZDÉSEK</span>
+              </h4>
+              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">
+                {bookmarks.length} elmentve
+              </span>
+            </div>
+
+            {bookmarks.length === 0 ? (
+              <div className="p-4 rounded border border-cyan-950/70 bg-black/40 text-center font-mono text-xs text-slate-500 space-y-1.5">
+                <BookmarkIcon className="w-6 h-6 mx-auto opacity-30 text-cyan-400" />
+                <p>Még nem mentettél el bekezdést az olvasóból.</p>
+                <p className="text-[11px] text-slate-600">
+                  A könyvolvasóban bármelyik bekezdés jobb felső sarkában a „Mentés” gombra kattintva elmentheted a kedvenc soraidat!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-thin pr-1">
+                {bookmarks.map((bm) => (
+                  <div
+                    key={bm.id}
+                    onClick={() => {
+                      audioEngine.playSonarPing();
+                      onClose();
+                      onOpenReader(bm.chapterIndex, bm.paragraphIndex);
+                    }}
+                    className="p-3 rounded border border-cyan-950/80 bg-[#040916] hover:bg-cyan-950/40 hover:border-cyan-400/80 transition-all cursor-pointer group text-left shadow-[0_0_12px_rgba(0,0,0,0.6)] hover:shadow-[0_0_18px_rgba(56,189,248,0.25)] relative"
+                    title={`Kattints az ugráshoz: ${bm.chapterTitle} (${bm.paragraphIndex + 1}. bekezdés)`}
+                  >
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-cinzel text-xs font-bold text-cyan-200 group-hover:text-cyan-300">
+                            {bm.chapterTitle}
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-950/90 border border-cyan-800 text-cyan-400">
+                            {bm.paragraphIndex + 1}. bekezdés
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-500">
+                            {bm.createdAt}
+                          </span>
+                        </div>
+
+                        {bm.note && (
+                          <div className="text-[11px] font-mono text-amber-300/90 bg-amber-950/20 px-2 py-0.5 rounded border border-amber-900/40 flex items-center gap-1">
+                            <span>📝 Jegyzet:</span>
+                            <span className="italic truncate">{bm.note}</span>
+                          </div>
+                        )}
+
+                        <p className="text-xs text-slate-300 font-light italic leading-relaxed line-clamp-2 pt-0.5">
+                          „{bm.snippet}”
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        <button
+                          onClick={(e) => handleDeleteBookmark(bm.id, e)}
+                          title="Könyvjelző törlése"
+                          className="p-1.5 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition-all opacity-70 group-hover:opacity-100"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <span className="text-[10px] font-mono text-cyan-400 group-hover:text-white px-2 py-1 rounded bg-cyan-950/90 border border-cyan-800 group-hover:border-cyan-400 flex items-center gap-1 transition-all shadow-[0_0_8px_rgba(56,189,248,0.2)]">
+                          <span>Ugrás</span>
+                          <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Action Footer: Continue Reading or Reset Local Data */}

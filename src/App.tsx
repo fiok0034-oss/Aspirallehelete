@@ -38,6 +38,7 @@ export default function App() {
   const [spoilerMode, setSpoilerMode] = useState<SpoilerMode>('spoiler-free');
   const [isReaderOpen, setIsReaderOpen] = useState(false);
   const [readerChapterIndex, setReaderChapterIndex] = useState(0);
+  const [readerParagraphIndex, setReaderParagraphIndex] = useState<number | undefined>(undefined);
   const [savedProgress, setSavedProgress] = useState<{ chapterIndex: number; percentage: number } | null>(null);
   const [showResumeBanner, setShowResumeBanner] = useState(true);
 
@@ -78,7 +79,7 @@ export default function App() {
     return () => window.removeEventListener('spiral_discovery_update', checkStatus);
   }, []);
 
-  const handleOpenReader = (chapterIdx?: number) => {
+  const handleOpenReader = (chapterIdx?: number, paragraphIdx?: number) => {
     if (typeof chapterIdx === 'number') {
       setReaderChapterIndex(chapterIdx);
     } else if (savedProgress && savedProgress.chapterIndex > 0) {
@@ -86,6 +87,7 @@ export default function App() {
     } else {
       setReaderChapterIndex(0);
     }
+    setReaderParagraphIndex(paragraphIdx);
     setIsReaderOpen(true);
   };
 
@@ -221,9 +223,9 @@ export default function App() {
       {isProfileOpen && (
         <UserProfileModal
           onClose={() => setIsProfileOpen(false)}
-          onOpenReader={() => {
+          onOpenReader={(chapterIdx, paragraphIdx) => {
             setIsProfileOpen(false);
-            handleOpenReader();
+            handleOpenReader(chapterIdx, paragraphIdx);
           }}
         />
       )}
@@ -237,10 +239,15 @@ export default function App() {
       {isReaderOpen && (
         <BookReader
           initialChapterIndex={readerChapterIndex}
+          initialParagraphIndex={readerParagraphIndex}
           spoilerMode={spoilerMode}
-          onClose={() => setIsReaderOpen(false)}
+          onClose={() => {
+            setIsReaderOpen(false);
+            setReaderParagraphIndex(undefined);
+          }}
           onNavigateToSection={(sectionId) => {
             setIsReaderOpen(false);
+            setReaderParagraphIndex(undefined);
             scrollTo(sectionId);
           }}
         />

@@ -55,6 +55,7 @@ import { useSpeechNarration } from '../utils/speechNarration';
 
 interface BookReaderProps {
   initialChapterIndex?: number;
+  initialParagraphIndex?: number;
   spoilerMode: SpoilerMode;
   onClose: () => void;
   onNavigateToSection?: (sectionId: string) => void;
@@ -74,6 +75,7 @@ const DEFAULT_SETTINGS: ReaderSettings = {
 
 export const BookReader: React.FC<BookReaderProps> = ({
   initialChapterIndex = 0,
+  initialParagraphIndex,
   spoilerMode,
   onClose,
   onNavigateToSection,
@@ -197,10 +199,35 @@ export const BookReader: React.FC<BookReaderProps> = ({
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_BOOKMARKS_KEY, JSON.stringify(bookmarks));
+      window.dispatchEvent(new CustomEvent('spiral_bookmarks_update'));
     } catch {
       // ignore
     }
   }, [bookmarks]);
+
+  // Synchronize currentChapterIndex if initialChapterIndex prop changes
+  useEffect(() => {
+    if (typeof initialChapterIndex === 'number' && initialChapterIndex >= 0) {
+      setCurrentChapterIndex(Math.min(initialChapterIndex, BOOK_CHAPTERS.length - 1));
+    }
+  }, [initialChapterIndex]);
+
+  // Scroll to targeted paragraph if initialParagraphIndex is specified (e.g. from UserProfileModal bookmarks)
+  useEffect(() => {
+    if (typeof initialParagraphIndex === 'number' && initialParagraphIndex >= 0) {
+      setTargetParagraphIndex(initialParagraphIndex);
+      setTimeout(() => {
+        const el = document.getElementById(`reader-para-${initialParagraphIndex}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+      const timer = setTimeout(() => {
+        setTargetParagraphIndex(null);
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [initialParagraphIndex, initialChapterIndex]);
 
   // Handler to compute chapter scroll progress
   const updateScrollProgress = () => {
@@ -362,14 +389,27 @@ export const BookReader: React.FC<BookReaderProps> = ({
   const [showNotePrompt, setShowNotePrompt] = useState(false);
 
   const addBookmark = (paragraphIdx: number = 0, customSnippet?: string, noteText?: string) => {
+    // Check if already bookmarked
+    const existingIndex = bookmarks.findIndex(
+      (b) => b.chapterIndex === currentChapterIndex && b.paragraphIndex === paragraphIdx
+    );
+
+    if (existingIndex !== -1 && !noteText && !bookmarkNoteInput.trim()) {
+      // Toggle off if already bookmarked and user clicked "Mentve"
+      const updated = bookmarks.filter((_, idx) => idx !== existingIndex);
+      setBookmarks(updated);
+      showToast('Könyvjelző eltávolítva a bekezdésről');
+      return;
+    }
+
     const snippet =
-      customSnippet || currentChapter.paragraphs[paragraphIdx]?.substring(0, 95) || currentChapter.title;
+      customSnippet || currentChapter.paragraphs[paragraphIdx]?.substring(0, 110) || currentChapter.title;
     const newBookmark: Bookmark = {
       id: `bm-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       chapterIndex: currentChapterIndex,
       chapterTitle: currentChapter.title,
       paragraphIndex: paragraphIdx,
-      snippet: snippet + (snippet.length > 95 ? '...' : ''),
+      snippet: snippet + (snippet.length > 110 ? '...' : ''),
       createdAt: new Date().toLocaleDateString('hu-HU', {
         month: 'short',
         day: 'numeric',
@@ -379,16 +419,45 @@ export const BookReader: React.FC<BookReaderProps> = ({
       percentage: totalPercentage,
       note: noteText?.trim() || (bookmarkNoteInput.trim() ? bookmarkNoteInput.trim() : undefined),
     };
-    setBookmarks((prev) => [newBookmark, ...prev]);
+
+    setBookmarks((prev) => [
+      newBookmark,
+      ...prev.filter(
+        (b) => !(b.chapterIndex === currentChapterIndex && b.paragraphIndex === paragraphIdx)
+      ),
+    ]);
     setBookmarkNoteInput('');
     setShowNotePrompt(false);
-    showToast(noteText || bookmarkNoteInput.trim() ? 'Könyvjelző és jegyzet elmentve!' : 'Könyvjelző elmentve a fejezethez!');
+    showToast(
+      noteText || bookmarkNoteInput.trim()
+        ? 'Könyvjelző és jegyzet elmentve!'
+        : `Könyvjelző elmentve: ${currentChapter.title} (${paragraphIdx + 1}. bekezdés)`
+    );
   };
 
-  const removeBookmark = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const removeBookmark = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setBookmarks((prev) => prev.filter((b) => b.id !== id));
     showToast('Könyvjelző törölve');
+  };
+
+  const goToBookmark = (bm: Bookmark) => {
+    audioEngine.playSonarPing();
+    setIsBookmarksOpen(false);
+    if (currentChapterIndex !== bm.chapterIndex) {
+      setCurrentChapterIndex(bm.chapterIndex);
+    }
+    setTargetParagraphIndex(bm.paragraphIndex);
+    setTimeout(() => {
+      const el = document.getElementById(`reader-para-${bm.paragraphIndex}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 250);
+    setTimeout(() => {
+      setTargetParagraphIndex(null);
+    }, 4500);
+    showToast(`Ugrás a könyvjelzőhöz: ${bm.chapterTitle} (${bm.paragraphIndex + 1}. bekezdés)`);
   };
 
   const POPULAR_SEARCH_KEYWORDS = [
@@ -1059,6 +1128,9 @@ export const BookReader: React.FC<BookReaderProps> = ({
                 (speech.isPlaying || speech.isPaused) &&
                 speech.activeChapterIndex === currentChapterIndex &&
                 speech.currentParagraphIndex === pIdx;
+              const isBookmarked = bookmarks.some(
+                (b) => b.chapterIndex === currentChapterIndex && b.paragraphIndex === pIdx
+              );
 
               return (
                 <div
@@ -1069,9 +1141,18 @@ export const BookReader: React.FC<BookReaderProps> = ({
                       ? 'ring-2 ring-cyan-400 bg-gradient-to-r from-cyan-950/60 via-cyan-950/30 to-[#040816] shadow-[0_0_30px_rgba(56,189,248,0.35)] border-l-4 border-l-cyan-400'
                       : isTarget
                       ? 'ring-2 ring-cyan-400 bg-cyan-950/50 shadow-[0_0_25px_rgba(56,189,248,0.4)]'
+                      : isBookmarked
+                      ? 'border-l-2 border-l-cyan-400 bg-cyan-950/15'
                       : 'hover:bg-cyan-950/10'
                   }`}
                 >
+                  {isBookmarked && (
+                    <div className="flex items-center gap-1.5 mb-2 text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/60 rounded px-2 py-0.5 w-fit shadow-[0_0_8px_rgba(56,189,248,0.25)] select-none">
+                      <BookmarkIcon className="w-3 h-3 fill-cyan-400 text-cyan-400" />
+                      <span>MENTETT KÖNYVJELZŐ // {pIdx + 1}. BEKEZDÉS</span>
+                    </div>
+                  )}
+
                   {isSpeakingThisPara && (
                     <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-cyan-500/30 text-[11px] font-mono text-cyan-300 font-semibold select-none">
                       <Headphones className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
@@ -1117,11 +1198,13 @@ export const BookReader: React.FC<BookReaderProps> = ({
 
                     <button
                       onClick={() => addBookmark(pIdx)}
-                      title="Könyvjelző ehhez a bekezdéshez"
-                      className="hover:text-cyan-300 flex items-center gap-1"
+                      title={isBookmarked ? 'Könyvjelző eltávolítása' : 'Könyvjelző mentése ehhez a bekezdéshez'}
+                      className={`flex items-center gap-1 transition-colors ${
+                        isBookmarked ? 'text-cyan-300 font-semibold' : 'hover:text-cyan-300'
+                      }`}
                     >
-                      <BookmarkIcon className="w-3 h-3" />
-                      <span>Mentés</span>
+                      <BookmarkIcon className={`w-3 h-3 ${isBookmarked ? 'fill-cyan-400 text-cyan-400' : ''}`} />
+                      <span>{isBookmarked ? 'Elmentve' : 'Mentés'}</span>
                     </button>
                   </div>
                 </div>
@@ -1451,13 +1534,18 @@ export const BookReader: React.FC<BookReaderProps> = ({
                 bookmarks.map((bm) => (
                   <div
                     key={bm.id}
-                    onClick={() => goToChapter(bm.chapterIndex)}
+                    onClick={() => goToBookmark(bm)}
                     className="p-3.5 rounded border border-cyan-950/80 bg-[#060b16] hover:border-cyan-700 hover:bg-cyan-950/30 transition-all cursor-pointer space-y-2 group"
                   >
                     <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="text-cyan-300 font-bold truncate max-w-[220px]">
-                        {bm.chapterTitle}
-                      </span>
+                      <div className="flex items-center gap-2 truncate max-w-[280px]">
+                        <span className="text-cyan-300 font-bold truncate">
+                          {bm.chapterTitle}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-950/90 border border-cyan-800 text-cyan-400 shrink-0">
+                          {bm.paragraphIndex + 1}. bek.
+                        </span>
+                      </div>
                       <button
                         onClick={(e) => removeBookmark(bm.id, e)}
                         title="Könyvjelző törlése"
