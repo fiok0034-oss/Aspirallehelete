@@ -140,6 +140,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
   const speech = useSpeechNarration((chapterIdx, pIdx) => {
     if (currentChapterIndex !== chapterIdx) {
       setCurrentChapterIndex(chapterIdx);
+      showToast('🎧 Következő fejezet automatikusan elindult.');
     }
     setTimeout(() => {
       const el = document.getElementById(`reader-para-${pIdx}`);

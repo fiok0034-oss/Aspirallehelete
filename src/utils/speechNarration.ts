@@ -147,6 +147,32 @@ export const useSpeechNarration = (
         if (nextIdx < queueRef.current.maxCount && nextIdx < queueRef.current.paragraphs.length) {
           speakCurrentIndex(nextIdx);
         } else {
+          // End of chapter reached. Automatically advance to next chapter if available.
+          const currentCh = activeChapterIndexRef.current;
+          if (currentCh !== null && currentCh + 1 < BOOK_CHAPTERS.length) {
+            const nextCh = currentCh + 1;
+            const nextChapterData = BOOK_CHAPTERS[nextCh];
+            if (nextChapterData) {
+              const rawParas = nextChapterData.paragraphs;
+              const maxCount = modeRef.current === 'excerpt' ? Math.min(rawParas.length, 3) : rawParas.length;
+
+              queueRef.current = {
+                title: `${nextChapterData.title}. ${nextChapterData.subtitle ? nextChapterData.subtitle + '.' : ''}`,
+                paragraphs: rawParas,
+                maxCount,
+              };
+
+              setActiveChapterIndex(nextCh);
+              setTotalParagraphs(maxCount);
+              setCurrentParagraphIndex(0);
+              if (onParagraphChange) {
+                onParagraphChange(nextCh, 0);
+              }
+              speakCurrentIndex(0);
+              return;
+            }
+          }
+
           setIsPlaying(false);
           setIsPaused(false);
           setActiveText('');
