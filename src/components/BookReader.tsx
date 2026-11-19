@@ -35,6 +35,7 @@ import {
   SkipForward,
   Volume2,
   VolumeX,
+  Moon,
 } from 'lucide-react';
 import {
   BookChapter,
@@ -135,6 +136,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAudioSettingsOpen, setIsAudioSettingsOpen] = useState(false);
+  const [isAmbientMode, setIsAmbientMode] = useState(false);
 
   // Web Speech API AI Narration Engine
   const speech = useSpeechNarration((chapterIdx, pIdx) => {
@@ -686,7 +688,9 @@ export const BookReader: React.FC<BookReaderProps> = ({
     >
       {/* 1. TOP HEADER BAR */}
       <header
-        className={`h-16 px-4 sm:px-6 flex items-center justify-between border-b ${themeStyle.header} backdrop-blur-md z-40 transition-colors shrink-0`}
+        className={`h-16 px-4 sm:px-6 flex items-center justify-between border-b ${themeStyle.header} backdrop-blur-md z-40 transition-all duration-500 shrink-0 ${
+          isAmbientMode ? 'opacity-20 hover:opacity-100' : ''
+        }`}
       >
         {/* Left: Back button & Book Title */}
         <div className="flex items-center gap-3 sm:gap-4">
@@ -875,6 +879,32 @@ export const BookReader: React.FC<BookReaderProps> = ({
             <Settings className="w-4 h-4" />
           </button>
 
+          {/* Cinematic Ambient Mode Toggle */}
+          <button
+            onClick={() => {
+              const next = !isAmbientMode;
+              setIsAmbientMode(next);
+              audioEngine.playSonarPing();
+              showToast(
+                next
+                  ? '🌙 Cinematic Ambient Mód: UI és háttér elhalványítva a fókuszért'
+                  : '☀️ Normál olvasási mód'
+              );
+            }}
+            title={
+              isAmbientMode
+                ? 'Cinematic Ambient Mód aktív (kattints a kikapcsoláshoz)'
+                : 'Cinematic Ambient Mód (háttér és UI elhalványítása a fókuszért)'
+            }
+            className={`p-2 rounded border transition-all ${
+              isAmbientMode
+                ? 'border-cyan-400 bg-cyan-950/85 text-cyan-200 shadow-[0_0_15px_rgba(56,189,248,0.5)] animate-pulse-slow'
+                : `${themeStyle.border} ${themeStyle.buttonHover} text-slate-300 hover:text-cyan-300`
+            }`}
+          >
+            <Moon className="w-4 h-4 text-cyan-400" />
+          </button>
+
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
@@ -974,7 +1004,9 @@ export const BookReader: React.FC<BookReaderProps> = ({
       <div
         ref={contentContainerRef}
         onScroll={updateScrollProgress}
-        className="flex-1 overflow-y-auto px-4 sm:px-8 py-10 sm:py-16 scrollbar-thin scrollbar-thumb-cyan-900/40 scrollbar-track-transparent relative"
+        className={`flex-1 overflow-y-auto px-4 sm:px-8 py-10 sm:py-16 scrollbar-thin scrollbar-thumb-cyan-900/40 scrollbar-track-transparent relative transition-all duration-500 ${
+          isAmbientMode ? 'bg-[#010307] shadow-[inset_0_0_200px_rgba(0,0,0,0.98)]' : ''
+        }`}
       >
         <article className="max-w-3xl mx-auto space-y-10 sm:space-y-12">
           {/* Chapter Header Banner */}
