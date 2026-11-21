@@ -19,7 +19,7 @@ export interface SpeechNarrationState {
 }
 
 export const useSpeechNarration = (
-  onParagraphChange?: (chapterIndex: number, paragraphIndex: number) => void
+  onParagraphChange?: (chapterIndex: number, paragraphIndex: number, autoAdvanced?: boolean) => void
 ) => {
   const isSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -162,11 +162,14 @@ export const useSpeechNarration = (
                 maxCount,
               };
 
+              // Update the ref synchronously so the next utterance reports the new chapter
+              activeChapterIndexRef.current = nextCh;
+              currentParagraphIndexRef.current = 0;
               setActiveChapterIndex(nextCh);
               setTotalParagraphs(maxCount);
               setCurrentParagraphIndex(0);
               if (onParagraphChange) {
-                onParagraphChange(nextCh, 0);
+                onParagraphChange(nextCh, 0, true);
               }
               speakCurrentIndex(0);
               return;
@@ -210,6 +213,9 @@ export const useSpeechNarration = (
         maxCount,
       };
 
+      modeRef.current = targetMode;
+      activeChapterIndexRef.current = chapterIndex;
+      currentParagraphIndexRef.current = startParagraphIdx;
       setMode(targetMode);
       setActiveChapterIndex(chapterIndex);
       setTotalParagraphs(maxCount);

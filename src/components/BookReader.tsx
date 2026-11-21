@@ -139,9 +139,9 @@ export const BookReader: React.FC<BookReaderProps> = ({
   const [isAmbientMode, setIsAmbientMode] = useState(false);
 
   // Web Speech API AI Narration Engine
-  const speech = useSpeechNarration((chapterIdx, pIdx) => {
-    if (currentChapterIndex !== chapterIdx) {
-      setCurrentChapterIndex(chapterIdx);
+  const speech = useSpeechNarration((chapterIdx, pIdx, autoAdvanced) => {
+    setCurrentChapterIndex((prev) => (prev === chapterIdx ? prev : chapterIdx));
+    if (autoAdvanced) {
       showToast('🎧 Következő fejezet automatikusan elindult.');
     }
     setTimeout(() => {
@@ -298,6 +298,13 @@ export const BookReader: React.FC<BookReaderProps> = ({
       }
       // Escape closes open modals
       if (e.key === 'Escape') {
+        const anyModalOpen =
+          isAudioSettingsOpen || isSearchOpen || isTocOpen || isBookmarksOpen || isSettingsOpen || isWorldOpen;
+        if (!anyModalOpen && isAmbientMode) {
+          setIsAmbientMode(false);
+          showToast('☀️ Normál olvasási mód');
+          return;
+        }
         if (isAudioSettingsOpen) setIsAudioSettingsOpen(false);
         else if (isSearchOpen) setIsSearchOpen(false);
         else if (isTocOpen) setIsTocOpen(false);
@@ -309,7 +316,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSearchOpen, isTocOpen, isBookmarksOpen, isSettingsOpen, isWorldOpen, isAudioSettingsOpen, activeSearchKeyword, searchQuery, speech]);
+  }, [isSearchOpen, isTocOpen, isBookmarksOpen, isSettingsOpen, isWorldOpen, isAudioSettingsOpen, isAmbientMode, activeSearchKeyword, searchQuery, speech]);
 
   // Toast notification timer
   useEffect(() => {
@@ -689,7 +696,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
       {/* 1. TOP HEADER BAR */}
       <header
         className={`h-16 px-4 sm:px-6 flex items-center justify-between border-b ${themeStyle.header} backdrop-blur-md z-40 transition-all duration-500 shrink-0 ${
-          isAmbientMode ? 'opacity-20 hover:opacity-100' : ''
+          isAmbientMode ? 'opacity-20 hover:opacity-100 focus-within:opacity-100' : ''
         }`}
       >
         {/* Left: Back button & Book Title */}
@@ -2090,7 +2097,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
 
       {/* 10. DOCKED AI SPEECH NARRATION PLAYER BAR */}
       {(speech.isPlaying || speech.isPaused) && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#040916]/95 border-t border-cyan-500/50 backdrop-blur-md px-4 py-3 shadow-[0_-5px_30px_rgba(0,0,0,0.8)] animate-slide-up">
+        <div className={`fixed bottom-0 left-0 right-0 z-40 bg-[#040916]/95 border-t border-cyan-500/50 backdrop-blur-md px-4 py-3 shadow-[0_-5px_30px_rgba(0,0,0,0.8)] animate-slide-up transition-opacity duration-500 ${isAmbientMode ? 'opacity-25 hover:opacity-100 focus-within:opacity-100' : ''}`}>
           <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
             {/* Left: Active info & visualizer */}
             <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
